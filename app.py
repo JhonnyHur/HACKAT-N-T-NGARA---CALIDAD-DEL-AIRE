@@ -1,48 +1,49 @@
 import os
-import pandas as pd
 from flask import Flask, jsonify, render_template
+from pymongo import MongoClient
 
 app = Flask(__name__)
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+MONGODB_URI = os.environ.get("MONGODB_URI")
+DB_NAME = os.environ.get("MONGODB_DB", "lol")
 
-# Config de sensores: id -> nombre visible + archivos
-SENSORS = {
-    "sensor_1": {
-        "label": "Sensor 1",
-        "train": "SENSOR_1_TRAIN.csv",
-        "test": "SENSOR_1_TEST.csv",
-    },
-    "sensor_2": {
-        "label": "Sensor 2",
-        "train": "SENSOR_2_TRAIN.csv",
-        "test": "SENSOR_2_TEST.csv",
-    },
+client = MongoClient(MONGODB_URI)
+db = client[DB_NAME]
+
+# Coordenadas fijas de respaldo (por si algún documento no las trae)
+SENSOR_LABELS = {
+    "sensor_1": "Sensor 1",
+    "sensor_2": "Sensor 2",
 }
 
-COL_MAP = {
-    "Fecha y Hora": "fecha",
-    "PM2.5_14D6 (μg/m³)": "pm25",
-    "Temperatura (°C)": "temperatura",
-    "Humedad (%)": "humedad",
-    "Lat": "lat",
-    "Long": "long",
-    "Pred_PM2.5_14D6 (μg/m³)": "pm25_pred",
+# sensor_id + split -> nombre real de la colección en Atlas
+COLLECTIONS = {
+    ("sensor_1", "train"): "Sensor1Train",
+    ("sensor_1", "test"): "Sensor1Test",
+    ("sensor_2", "train"): "Sensor2Train",
+    ("sensor_2", "test"): "Sensor2Test",
 }
 
-
-def load_csv(path):
-    df = pd.read_csv(path, encoding="utf-8-sig")
-    df = df.rename(columns=COL_MAP)
-    return df
+# El header original "PM2.5_14D6 (µg/m³)" traía un punto, así que Mongo lo
+# guardó como subdocumento: PM2 -> "5_14D6 (µg/m³)"
+PM25_SUBFIELD = "5_14D6 (μg/m³)"
 
 
-# Cache en memoria al arrancar (los CSV son estáticos / no cambian en runtime)
-_CACHE = {}
-for sensor_id, cfg in SENSORS.items():
-    for split in ("train", "test"):
-        fpath = os.path.join(DATA_DIR, cfg[split])
-        _CACHE[(sensor_id, split)] = load_csv(fpath)
+def normalize(doc, has_prediction):
+    """Convierte el documento de Mongo (con subdocumentos) a un dict plano."""
+    pm25_obj = doc.get("PM2") or {}
+    flat = {
+        "fecha": doc.get("Fecha y Hora"),
+        "pm25": pm25_obj.get(PM25_SUBFIELD),
+        "temperatura": doc.get("Temperatura (°C)"),
+        "humedad": doc.get("Humedad (%)"),
+        "lat": doc.get("Lat"),
+        "long": doc.get("Long"),
+    }
+    if has_prediction:
+        pred_obj = doc.get("Pred_PM2") or {}
+        flat["pm25_pred"] = pred_obj.get(PM25_SUBFIELD)
+    return flat
 
 
 @app.route("/")
@@ -52,33 +53,49 @@ def index():
 
 @app.route("/api/sensors")
 def api_sensors():
-    """Metadata de cada sensor: ubicación (lat/long) y última lectura conocida."""
+    """Metadata de cada sensor: ubicación (lat/long) y última lectura (split=test)."""
     result = []
-    for sensor_id, cfg in SENSORS.items():
-        df = _CACHE[(sensor_id, "test")]
-        last = df.iloc[-1]
+    for sensor_id, label in SENSOR_LABELS.items():
+        coll_name = COLLECTIONS.get((sensor_id, "test"))
+        if not coll_name:
+            continue
+        coll = db[coll_name]
+        last_raw = coll.find_one(sort=[("Fecha y Hora", -1)])
+        if not last_raw:
+            continue
+        last = normalize(last_raw, has_prediction=True)
         result.append({
             "id": sensor_id,
-            "label": cfg["label"],
-            "lat": float(df["lat"].iloc[0]),
-            "long": float(df["long"].iloc[0]),
-            "last_pm25": float(last["pm25"]),
-            "last_fecha": str(last["fecha"]),
+            "label": label,
+            "lat": last["lat"],
+            "long": last["long"],
+            "last_pm25": last["pm25"],
+            "last_fecha": last["fecha"],
         })
     return jsonify(result)
 
 
 @app.route("/api/data/<sensor_id>/<split>")
 def api_data(sensor_id, split):
-    if sensor_id not in SENSORS or split not in ("train", "test"):
+    if split not in ("train", "test"):
         return jsonify({"error": "not found"}), 404
 
-    df = _CACHE[(sensor_id, split)]
-    records = df.to_dict(orient="records")
+    coll_name = COLLECTIONS.get((sensor_id, split))
+    if not coll_name:
+        return jsonify({"error": "not found"}), 404
+
+    coll = db[coll_name]
+    has_prediction = split == "test"
+    raw_records = list(coll.find().sort("Fecha y Hora", 1))
+    records = [normalize(r, has_prediction) for r in raw_records]
+
+    if not records:
+        return jsonify({"error": "not found"}), 404
+
     return jsonify({
         "sensor_id": sensor_id,
         "split": split,
-        "has_prediction": split == "test",
+        "has_prediction": has_prediction,
         "count": len(records),
         "records": records,
     })
