@@ -10,13 +10,13 @@ DB_NAME = os.environ.get("MONGODB_DB", "lol")
 client = MongoClient(MONGODB_URI)
 db = client[DB_NAME]
 
-# Coordenadas fijas de respaldo (por si algún documento no las trae)
 SENSOR_LABELS = {
     "sensor_1": "Sensor 1",
     "sensor_2": "Sensor 2",
 }
 
-# sensor_id + split -> nombre real de la colección en Atlas
+# sensor_id + split -> nombre real de la colección en Atlas.
+# Renombra tus colecciones en Atlas exactamente así para que esto funcione.
 COLLECTIONS = {
     ("sensor_1", "train"): "Sensor1Train",
     ("sensor_1", "test"): "Sensor1Test",
@@ -24,13 +24,10 @@ COLLECTIONS = {
     ("sensor_2", "test"): "Sensor2Test",
 }
 
-# El header original "PM2.5_14D6 (µg/m³)" traía un punto, así que Mongo lo
-# guardó como subdocumento: PM2 -> "5_14D6 (µg/m³)"
 PM25_SUBFIELD = "5_14D6 (μg/m³)"
 
 
 def normalize(doc, has_prediction):
-    """Convierte el documento de Mongo (con subdocumentos) a un dict plano."""
     pm25_obj = doc.get("PM2") or {}
     flat = {
         "fecha": doc.get("Fecha y Hora"),
@@ -51,9 +48,17 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/api/_debug/collections")
+def debug_collections():
+    """Util para verificar que encontramos las colecciones correctas."""
+    return jsonify({
+        "existing_in_db": db.list_collection_names(),
+        "resolved_mapping": {f"{k[0]}/{k[1]}": v for k, v in COLLECTIONS.items()},
+    })
+
+
 @app.route("/api/sensors")
 def api_sensors():
-    """Metadata de cada sensor: ubicación (lat/long) y última lectura (split=test)."""
     result = []
     for sensor_id, label in SENSOR_LABELS.items():
         coll_name = COLLECTIONS.get((sensor_id, "test"))
