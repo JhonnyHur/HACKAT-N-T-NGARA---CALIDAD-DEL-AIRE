@@ -1,0 +1,29 @@
+# Entorno
+.env
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Airflow
+logs/
+airflow.db
+airflow.cfg
+airflow-webserver.pid
+
+# Datos
+data/raw/
+data/processed/
+
+# Docker
+postgres_data/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

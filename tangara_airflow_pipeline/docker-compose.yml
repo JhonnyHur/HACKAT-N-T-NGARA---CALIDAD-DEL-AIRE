@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ai_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ai_admin}
+      POSTGRES_DB: ${POSTGRES_DB:-ai_project}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    ports:
+      - "5432:5432"
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_admin -d ai_project"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  airflow:
+    build: .
+
+    restart: on-failure
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-ai_admin}:${POSTGRES_PASSWORD:-ai_admin}@postgres/${POSTGRES_DB:-ai_project}
+
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST}
+      CLICKHOUSE_PORT: ${CLICKHOUSE_PORT:-443}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE:-tangara_plata}
+      CLICKHOUSE_SECURE: ${CLICKHOUSE_SECURE:-True}
+      CLICKHOUSE_TABLE: ${CLICKHOUSE_TABLE:-plata_tangara_sensores}
+
+      TANGARA_SENSOR_NAMES: ${TANGARA_SENSOR_NAMES:-2FF6,F1AE,1712,307A}
+      TANGARA_LOOKBACK_HOURS: ${TANGARA_LOOKBACK_HOURS:-24}
+
+      _PIP_ADDITIONAL_REQUIREMENTS: >-
+        pandas
+        numpy
+        requests
+        clickhouse-connect
+        psycopg2-binary
+        openpyxl
+
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+      - ./logs:/opt/airflow/logs
+      - ./data:/opt/airflow/data
+      - ./datos_train_test:/opt/airflow/datos_train_test
+
+    ports:
+      - "8080:8080"
+
+    command: >
+      bash -c "
+      airflow db init &&
+      airflow users create
+      --username admin
+      --password admin
+      --firstname Admin
+      --lastname User
+      --role Admin
+      --email admin@example.com &&
+      airflow scheduler &
+      airflow webserver
+      "
+
+  pgadmin:
+    image: dpage/pgadmin4:8.14
+
+    platform: linux/amd64
+
+    restart: always
+
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+
+    ports:
+      - "5050:80"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

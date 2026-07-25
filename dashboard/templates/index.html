@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Predicción de PM2.5 Hackatón Tangara</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>Predicción de PM2.5 Hackatón Tangara</h1>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="predicciones">Predicciones</button>
+    <button class="tab-btn" data-tab="train">Train</button>
+    <button class="tab-btn" data-tab="test">Test</button>
+  </nav>
+
+  <main>
+
+    <!-- ===================== PREDICCIONES ===================== -->
+    <section id="tab-predicciones" class="tab-panel active">
+      <div class="empty-state">
+        <p>Todavía no hay un modelo de predicción conectado a esta sección.</p>
+        <p>Cuando el modelo esté listo, aquí se mostrarán las predicciones de PM2.5.</p>
+      </div>
+    </section>
+
+    <!-- ===================== TRAIN ===================== -->
+    <section id="tab-train" class="tab-panel dataset-view" data-split="train">
+
+      <div class="controls">
+        <div class="sensor-selector"></div>
+
+        <div class="filters">
+          <label>
+            Desde:
+            <input type="datetime-local" class="filter-start">
+          </label>
+          <label>
+            Hasta:
+            <input type="datetime-local" class="filter-end">
+          </label>
+          <button class="apply-filters">Aplicar filtro</button>
+          <button class="clear-filters">Limpiar</button>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="map-container">
+          <div class="leaflet-map"></div>
+        </div>
+
+        <div class="charts-container">
+          <div class="chart-box">
+            <h3>PM2.5 (μg/m³)</h3>
+            <canvas class="chart-pm25"></canvas>
+          </div>
+          <div class="chart-box">
+            <h3>Temperatura (°C)</h3>
+            <canvas class="chart-temperatura"></canvas>
+          </div>
+          <div class="chart-box">
+            <h3>Humedad (%)</h3>
+            <canvas class="chart-humedad"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <p class="status-line"></p>
+
+    </section>
+
+    <!-- ===================== TEST ===================== -->
+    <section id="tab-test" class="tab-panel dataset-view" data-split="test">
+
+      <div class="controls">
+        <div class="sensor-selector"></div>
+
+        <div class="filters">
+          <label>
+            Desde:
+            <input type="datetime-local" class="filter-start">
+          </label>
+          <label>
+            Hasta:
+            <input type="datetime-local" class="filter-end">
+          </label>
+          <button class="apply-filters">Aplicar filtro</button>
+          <button class="clear-filters">Limpiar</button>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <div class="map-container">
+          <div class="leaflet-map"></div>
+        </div>
+
+        <div class="charts-container">
+          <div class="chart-box">
+            <h3>PM2.5 real vs. predicho (μg/m³)</h3>
+            <canvas class="chart-pm25"></canvas>
+          </div>
+          <div class="chart-box">
+            <h3>Temperatura (°C)</h3>
+            <canvas class="chart-temperatura"></canvas>
+          </div>
+          <div class="chart-box">
+            <h3>Humedad (%)</h3>
+            <canvas class="chart-humedad"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <p class="status-line"></p>
+
+    </section>
+
+  </main>
+
+  <script>
+    // Nombres reales de sensor inyectados desde el backend
+    const SENSORS = {{ sensors | tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
