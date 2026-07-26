@@ -54,7 +54,7 @@ Análisis exploratorio de los registros históricos (enero de 2023 – junio de 
 ### Ubicación de sensores 2.0.pdf
 
 Ubicación geográfica de los cuatro sensores seleccionados para el desarrollo del modelo.
-```
+
 
 ---
 
