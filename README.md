@@ -63,7 +63,7 @@ Documento con la ubicación geográfica de los cuatro sensores seleccionados par
 
 ## Origen de los datos
 
-Los datos son obtenidos desde la infraestructura de la **Red de Sensores Tángara**, almacenados en una base de datos **ClickHouse**. El pipeline consulta la capa **Plata** para extraer información de **temperatura**, **humedad**, **PM2.5** y la **ubicación de los sensores**.
+Los datos son obtenidos desde la infraestructura de la Red de Sensores Tángara, almacenados en una base de datos ClickHouse. El pipeline consulta la capa Silver para extraer información de temperatura, humedad, PM2.5 y la ubicación de los sensores.
 
 **Repositorio de referencia**
 
@@ -76,7 +76,7 @@ Para el desarrollo del proyecto se utilizaron los siguientes sensores:
 | Código | Nombre del sensor |
 |--------:|-------------------|
 | 2FF6 | D29ESP32DED2FF6 |
-| F1AE | D29TTGOTD8F1AE |
+| F1AE | D29TTGOTD8F1AE  |
 | 1712 | D29ESP32DEE1712 |
 | 307A | D29ESP32DED307A |
 
