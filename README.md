@@ -264,5 +264,3 @@ SSL mode
 require
 ```
 
-
-```
