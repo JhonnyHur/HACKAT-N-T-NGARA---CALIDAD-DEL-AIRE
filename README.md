@@ -87,121 +87,158 @@ Para este proyecto se utilizan los siguientes sensores seleccionados:
 
 ---
 
-## Cómo correr todo el proyecto (paso a paso)
+# Ejecución del Proyecto
 
-### 0. Requisitos previos
-
-- Tener **Docker Desktop** (o Docker + Docker Compose) instalado y
-  corriendo.
-- Tener las credenciales de ClickHouse del ecosistema Tangara
-  (`CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD`), provistas por el equipo
-  de Tangara. Sin esto el pipeline no podrá conectarse.
-
-### 1. Descomprimir y ubicarte en la carpeta del proyecto
-
-```bash
-cd tangara-airflow-pipeline
-```
-
-### 2. Crear el archivo de variables de entorno
-
-```bash
-cp env.example .env
-```
-
-Abre `.env` con tu editor y completa al menos:
-
-```text
-CLICKHOUSE_USER=tu_usuario
-CLICKHOUSE_PASSWORD=tu_password
-```
-
-La lista de sensores (`TANGARA_SENSOR_NAMES=2FF6,F1AE,1712,307A`) y el
-resto de valores ya vienen listos por defecto; solo cámbialos si lo
-necesitas.
-
-### 3. Verificar la carpeta de datasets train/test
-
-Asegúrate de que la carpeta `datos_train_test/` esté en la raíz del
-proyecto (al mismo nivel que `docker-compose.yml`) con los 8 CSV
-nombrados exactamente así: `Sensor 2FF6 Train.csv`,
-`Sensor 2FF6 Test.csv`, etc. (mayúsculas y espacios tal cual). Si el
-nombre no coincide exacto, esa tarea del DAG mostrará un aviso de
-"No encontrado" para ese archivo y seguirá con los demás.
-
-### 4. Levantar los contenedores
-
-Desde la misma carpeta (donde está `docker-compose.yml`):
+Levantar los contenedores:
 
 ```bash
 docker compose up -d --build
 ```
 
-Esto construye la imagen de Airflow y levanta 3 servicios:
-`postgres`, `airflow` y `pgadmin`. La primera vez puede tardar varios
-minutos (descarga imágenes, instala Airflow y las dependencias de
-`_PIP_ADDITIONAL_REQUIREMENTS`).
-
-> Si ya tenías los contenedores corriendo de una versión anterior y
-> solo cambiaste código (no el `.env`), usa
-> `docker compose up -d --build` de nuevo para reconstruir la imagen
-> con los cambios.
-
-### 5. Activar y correr el DAG
-
-1. Entra a `http://localhost:8080` (usuario `admin`, contraseña `admin`).
-2. Busca el DAG `tangara_pipeline` en el listado.
-3. Actívalo con el switch de la izquierda (por defecto está pausado).
-4. Dispáralo manualmente la primera vez con el botón ▶ (Trigger DAG),
-   o espera a que corra según su schedule (`@hourly`).
-
-El DAG tiene 3 tareas: 2 encadenadas y 1 independiente en paralelo:
-
-`extract_and_load_bronze_tangara_data` → `transform_and_load_silver_tangara_data`
-
-`load_train_test_csv_to_silver` (corre en paralelo, no depende de las anteriores — solo lee los CSV estáticos de `datos_train_test/`)
-
-### 6. Revisar los datos cargados
-
-Entra a pgAdmin (`http://localhost:5050`, `admin@admin.com` / `admin`),
-conecta el servidor Postgres con los datos de la sección de abajo, y
-consulta las tablas:
-
-**Del flujo en vivo (ClickHouse):**
-- `bronze.tangara_sensores_api_data`
-- `silver.stg_tangara_sensor_2ff6`
-- `silver.stg_tangara_sensor_f1ae`
-- `silver.stg_tangara_sensor_1712`
-- `silver.stg_tangara_sensor_307a`
-
-**De los CSV train/test (estáticos):**
-- `silver.sensor_2ff6_train` / `silver.sensor_2ff6_test`
-- `silver.sensor_f1ae_train` / `silver.sensor_f1ae_test`
-- `silver.sensor_1712_train` / `silver.sensor_1712_test`
-- `silver.sensor_307a_train` / `silver.sensor_307a_test`
-
-### 7. Detener el proyecto
+Detener los contenedores:
 
 ```bash
 docker compose down
 ```
 
-Esto detiene los contenedores sin borrar los datos (quedan en el
-volumen `postgres_data`). Si además quieres borrar los datos:
+Una vez iniciado el proyecto:
 
-```bash
-docker compose down -v
+1. Ejecuta el DAG desde **Apache Airflow**.
+2. El pipeline extrae los datos más recientes de la **Red de Sensores Tángara**.
+3. Los datos son procesados y almacenados en **PostgreSQL**.
+4. El dashboard desplegado en **Render** consulta automáticamente la base de datos y muestra la información más reciente junto con el pronóstico de **PM2.5 para las próximas 6 horas**.
+
+---
+
+# Acceso a Apache Airflow
+
+URL
+
+```text
+http://localhost:8080
+```
+
+Usuario
+
+```text
+admin
+```
+
+Contraseña
+
+```text
+admin
 ```
 
 ---
 
-## Acceso a pgAdmin
+# Acceso a pgAdmin
 
-URL: `http://localhost:5050`
-Usuario: `admin@admin.com`
-Contraseña: `admin`
+URL
 
-### Conexión a PostgreSQL
+```text
+http://localhost:5050
+```
+
+Usuario
+
+```text
+admin@admin.com
+```
+
+Contraseña
+
+```text
+admin
+```
+
+---
+
+# Conexión a PostgreSQL Local
+
+### GENERAL
+
+Name
+
+```text
+ai-project-postgres
+```
+
+### CONNECTION
+
+Host name/address
+
+```text
+postgres
+```
+
+Port
+
+```text
+5432
+```
+
+Maintenance database
+
+```text
+ai_project
+```
+
+Username
+
+```text
+ai_admin
+```
+
+Password
+
+```text
+ai_admin
+```
+
+---
+
+# Conexión a PostgreSQL (Render)
+
+### GENERAL
+
+Name
+
+```text
+render-postgres
+```
+
+### CONNECTION
+
+Host name/address
+
+```text
+dpg-d9is09vavr4c73bcokm0-a.ohio-postgres.render.com
+```
+
+Port
+
+```text
+5432
+```
+
+Maintenance database
+
+```text
+ai_project_4i6q
+```
+
+Username
+
+```text
+admin
+```
+
+Password
+
+```text
+bluS2CCW9ux17mwR6f7x92mjacn8JKER
+```
 
 - Host: `postgres`
 - Puerto: `5432`
