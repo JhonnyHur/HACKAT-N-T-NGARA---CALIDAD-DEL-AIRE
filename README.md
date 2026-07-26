@@ -46,7 +46,7 @@ Pipeline ETL End-to-End, orquestado con Apache Airflow y contenedorizado con Doc
 
 ### HACKATÓN_TÁNGARA_CALIDAD_DEL_AIRE_SENSOR_2FF6.ipynb
 
-Notebook con el entrenamiento, validación y evaluación del modelo XGBoost utilizando los registros históricos del sensor **2FF6**.
+Notebook con la creación, entrenamiento, validación y evaluación del modelo XGBoost utilizando los registros históricos del sensor **2FF6**.
 
 ### Sensores.xlsx
 
