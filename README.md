@@ -116,7 +116,6 @@ CLICKHOUSE_PASSWORD=tu_password
 
 
 
----
 
 # Ejecución del Proyecto
 
