@@ -172,12 +172,6 @@ Name
 ProyectoTangara
 ```
 
-Server group
-
-```text
-Servers
-```
-
 ---
 
 ### Pestaña: Connection
@@ -194,7 +188,7 @@ Port
 5432
 ```
 
-Maintenance database
+Database
 
 ```text
 ai_project
