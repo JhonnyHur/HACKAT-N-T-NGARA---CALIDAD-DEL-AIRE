@@ -33,12 +33,12 @@ function hasValidCoords(sensor) {
 const PRIMARY_SENSOR_ID = "2ff6";
 
 const AQI_LEVELS = [
-  { max: 12.9, label: "< 13 µg/m³", color: "#7cb342" },
-  { max: 34.9, label: "13 µg/m³+", color: "#f2c230" },
-  { max: 54.9, label: "35 µg/m³+", color: "#e8752c" },
-  { max: 149.9, label: "55 µg/m³+", color: "#d0392b" },
-  { max: 249.9, label: "150 µg/m³+", color: "#8e3fa3" },
-  { max: Infinity, label: "250 µg/m³+", color: "#5c0a1a" },
+  { max: 12.9, label: "Bien", color: "#0e8f5f" },
+  { max: 34.9, label: "Moderado", color: "#e8c33e" },
+  { max: 54.9, label: "Nocivo para grupos sensibles", color: "#e08a3c" },
+  { max: 149.9, label: "Poco saludable", color: "#c0392b" },
+  { max: 249.9, label: "Muy poco saludable", color: "#7d3c98" },
+  { max: Infinity, label: "Peligroso", color: "#5c0a1a" },
 ];
 
 function getAQICategory(pm25) {
