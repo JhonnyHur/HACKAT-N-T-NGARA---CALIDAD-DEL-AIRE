@@ -1,10 +1,10 @@
 # Predicción de PM2.5 mediante Modelo de Machine Learning
 
-Proyecto desarrollado para la **Hackatón Tángara 2026**, que integra un pipeline de Ingeniería de Datos y un modelo de Inteligencia Artificial para la estimación de concentraciones de **PM2.5** en el oriente de Santiago de Cali.
+Proyecto desarrollado para la **Hackatón Tángara 2026**, que integra un pipeline de Ingeniería de Datos y un modelo de Inteligencia Artificial para la estimación de concentraciones de **PM2.5** en el suroccidente de Santiago de Cali.
 
-La solución combina registros históricos de calidad del aire recopilados entre **2014 y 2019** en la Estación de Monitoreo Compartir con datos ambientales obtenidos en tiempo real a través de la **Red de Sensores Tángara**. Estos datos son procesados automáticamente mediante un pipeline implementado con **Apache Airflow**, almacenados en **PostgreSQL** bajo una arquitectura Medallón (Bronze y Silver) y utilizados por un modelo de **Machine Learning (XGBoost)** para generar predicciones de PM2.5.
+La solución combina registros históricos de calidad del aire recopilados entre **2023 y 2026** datos ambientales obtenidos en tiempo real a través de la **Red de Sensores Tángara**. Estos datos son procesados automáticamente mediante un pipeline implementado End to End con **Apache Airflow**, almacenados en **PostgreSQL** bajo una arquitectura Medallón (Bronze, Silver y Gold) y utilizados por un modelo de **Machine Learning (XGBoost)** para generar predicciones de PM2.5.
 
-Finalmente, los resultados son presentados mediante un **dashboard interactivo**, permitiendo visualizar las variables ambientales, consultar información histórica y monitorear las predicciones generadas por el modelo.
+Finalmente, los resultados son presentados mediante un **dashboard interactivo**, permitiendo visualizar las variables ambientales (Temperatura, Humedad), consultar información histórica y monitorear las predicciones generadas por el modelo.
 
 ---
 
