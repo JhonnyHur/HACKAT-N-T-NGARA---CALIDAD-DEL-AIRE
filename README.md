@@ -94,7 +94,7 @@ Para el desarrollo del proyecto se utilizaron los siguientes sensores:
 
 Antes de ejecutar el proyecto, asegúrate de contar con lo siguiente:
 
-- Docker Desktop (o Docker + Docker Compose) instalado y en ejecución.
+- Docker Desktop instalado: https://www.docker.com/products/docker-desktop
 - Credenciales de acceso a ClickHouse de la Red de Sensores Tángara (`CLICKHOUSE_USER` y `CLICKHOUSE_PASSWORD`).
 
 Crear el archivo de variables de entorno:
