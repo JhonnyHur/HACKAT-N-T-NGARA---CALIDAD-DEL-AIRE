@@ -1,14 +1,32 @@
-# Pipeline de Temperatura y Humedad — Red de Sensores Tangara (Cali)
+# PM2.5 Prediction Using Artificial Intelligence and Data Engineering
 
-Pipeline de Data Engineering, orquestado con Apache Airflow, que extrae
-las variables de **Temperatura** y **Humedad** de la red de sensores de
-calidad del aire **Tangara** (Cali) y las procesa bajo una
-**arquitectura medallón** (Bronze, Silver), totalmente contenerizado
-con Docker Compose.
+End-to-end Data Engineering and Artificial Intelligence project developed for the **Hackathon Tángara 2026**.
 
-> Nota: por ahora el proyecto llega hasta la capa **Silver**. La capa
-> Gold se retiró temporalmente porque más adelante se conectará
-> directamente a un modelo de Machine Learning.
+The project integrates a complete environmental data pipeline with Machine Learning to estimate **PM2.5 concentrations** in eastern Santiago de Cali, Colombia. The solution combines historical air quality records (2014–2019) with real-time environmental information collected by the Tangara sensor network, automatically processing the data through an Apache Airflow pipeline and generating predictions using an **XGBoost** regression model.
+
+The processed information is stored in PostgreSQL following a Medallion Architecture (Bronze and Silver) and is exposed through an interactive dashboard for monitoring environmental conditions and PM2.5 predictions. :contentReference[oaicite:1]{index=1}
+
+---
+
+# Project Team
+
+| Member | Institution | Email |
+|---------|-------------|-------|
+| Bryan Fernando Burbano Carvajal | Universidad Autónoma de Occidente | bryanburbanocarvajal24@gmail.com |
+| Jhonny Silvano Hurtado Sinisterra | *(Agregar universidad)* | *(Agregar correo)* |
+| Germán Andrés Calberto Sánchez | *(Agregar universidad)* | *(Agregar correo)* |
+| Graciela Sánchez Ibarra | *(Agregar universidad)* | *(Agregar correo)* |
+
+---
+
+## Repository Structure
+
+```text
+.
+├── dashboard/
+├── tangara/
+└── README.md
+```
 
 ---
 
