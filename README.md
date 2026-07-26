@@ -209,18 +209,20 @@ ai_admin
 
 
 ---
-
 # Conexión a PostgreSQL (Render)
 
-### GENERAL
+### Pestaña: General
 
 Name
 
 ```text
-render-postgres
+TangaraRender
 ```
 
-### CONNECTION
+
+---
+
+### Pestaña: Connection
 
 Host name/address
 
@@ -234,7 +236,7 @@ Port
 5432
 ```
 
-Maintenance database
+Database
 
 ```text
 ai_project_4i6q
@@ -252,8 +254,15 @@ Password
 bluS2CCW9ux17mwR6f7x92mjacn8JKER
 ```
 
-- Host: `postgres`
-- Puerto: `5432`
-- Base de datos: `ai_project`
-- Usuario: `ai_admin`
-- Contraseña: `ai_admin`
+---
+
+### Pestaña: Parameters
+
+SSL mode
+
+```text
+require
+```
+
+
+```
