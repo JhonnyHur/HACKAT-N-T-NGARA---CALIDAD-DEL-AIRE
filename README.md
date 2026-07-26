@@ -35,25 +35,25 @@ Todo el proceso es gestionado mediante un pipeline ETL End-to-End, orquestado co
 └── Ubicación de sensores 2.0.pdf
 ```
 
-### * dashboard/
+### dashboard/
 
-Dashboard interactivo para visualizar variables ambientales y las predicciones de PM2.5.
+Dashboard interactivo para visualizar variables ambientales, consultar información histórica y monitorear las predicciones de PM2.5.
 
-### * tangara_airflow_pipeline/
+### tangara_airflow_pipeline/
 
-Pipeline ETL End-to-End, orquestado con Apache Airflow y Docker, encargado del procesamiento de los datos de la Red de Sensores Tángara.
+Pipeline ETL End-to-End, orquestado con Apache Airflow y contenedorizado con Docker, encargado del procesamiento de los datos de la Red de Sensores Tángara.
 
-### * HACKATÓN_TÁNGARA_CALIDAD_DEL_AIRE_...
+### HACKATÓN_TÁNGARA_CALIDAD_DEL_AIRE_SENSOR_2FF6.ipynb
 
 Notebook con el entrenamiento, validación y evaluación del modelo XGBoost utilizando los registros históricos del sensor **2FF6**.
 
-### * Sensores.xlsx
+### Sensores.xlsx
 
-Análisis exploratorio de los registros históricos (enero de 2023 – junio de 2026) utilizado para la selección de los sensores.
+Análisis exploratorio de los registros históricos (enero de 2023 a junio de 2026) para la selección de los sensores utilizados en el desarrollo del modelo.
 
-### * Ubicación de sensores 2.0.pdf
+### Ubicación de sensores 2.0.pdf
 
-Ubicación geográfica de los cuatro sensores seleccionados para el desarrollo del modelo.
+Documento con la ubicación geográfica de los cuatro sensores seleccionados para el desarrollo del modelo de Machine Learning.
 
 
 ---
