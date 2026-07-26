@@ -67,7 +67,7 @@ Los datos son obtenidos desde la infraestructura de la Red de Sensores Tángara,
 
 **Repositorio de referencia**
 
-**Autor:** Sebastián Burbano
+**Autor:** Sebastian Rios Sabogal
 
 **Repositorio:** https://github.com/sebaxtian/clickhouse-tangara
 
