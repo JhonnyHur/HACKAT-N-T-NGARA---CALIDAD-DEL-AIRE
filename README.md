@@ -63,9 +63,15 @@ Documento con la ubicación geográfica de los cuatro sensores seleccionados par
 
 ## Origen de los datos
 
-Los datos son obtenidos desde la infraestructura de la **Red de Sensores Tángara**, almacenados en una base de datos **ClickHouse**. El pipeline extrae información desde la capa **Plata**, incluyendo variables como **temperatura**, **humedad**, **PM2.5** y la **ubicación del sensor**.
+Los datos son obtenidos desde la infraestructura de la **Red de Sensores Tángara**, almacenados en una base de datos **ClickHouse**. El pipeline consulta la capa **Plata** para extraer información de **temperatura**, **humedad**, **PM2.5** y la **ubicación de los sensores**.
 
-Para este proyecto se utilizan los siguientes sensores seleccionados:
+**Repositorio de referencia**
+
+**Autor:** Sebastián Burbano
+
+**Repositorio:** https://github.com/sebaxtian/clickhouse-tangara
+
+Para el desarrollo del proyecto se utilizaron los siguientes sensores:
 
 | Código | Nombre del sensor |
 |--------:|-------------------|
@@ -73,6 +79,8 @@ Para este proyecto se utilizan los siguientes sensores seleccionados:
 | F1AE | D29TTGOTD8F1AE |
 | 1712 | D29ESP32DEE1712 |
 | 307A | D29ESP32DED307A |
+
+
 
 ## Arquitectura
 
