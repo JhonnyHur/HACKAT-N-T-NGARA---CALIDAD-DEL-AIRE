@@ -218,9 +218,21 @@ def sensor_snapshot(conn, schema, table, start_date, end_date,
             "range_end": range_end,
         }
 
+    # IMPORTANTE: no basta con "la fila mas reciente por fecha".
+    # En gold.sensor_2ff6_predicciones, ademas de las filas
+    # historicas (dato real conocido), siempre hay 6 filas de
+    # PRONOSTICO a futuro (PM2.5_Real nulo, ver
+    # predict_next_hours_sensor_2ff6.py) con fecha posterior a la
+    # ultima real -- si se ordenara solo por fecha, siempre se
+    # devolveria una de esas filas de pronostico (PM2.5 nulo -> el
+    # marcador del mapa se ve gris/"Sin dato"). Por eso aqui se
+    # exige explicitamente que pm25_col no sea nulo antes de tomar
+    # la mas reciente: la ultima fila con DATO REAL, sin importar
+    # si hay filas de pronostico mas nuevas encima.
     row = conn.execute(
         text(
             f'SELECT * FROM {schema}."{table}" '
+            f'WHERE "{pm25_col}" IS NOT NULL '
             f'ORDER BY "{date_col}" DESC LIMIT 1'
         )
     ).fetchone()
