@@ -51,6 +51,7 @@ Notebook con el entrenamiento, validación y evaluación del modelo XGBoost util
 ### Sensores.xlsx
 
 Análisis exploratorio de los registros históricos (enero de 2023 a junio de 2026) para la selección de los sensores utilizados en el desarrollo del modelo.
+DATA HISTORICA: https://drive.google.com/drive/folders/1nFosDZsS_br2JzNnk9DQLsYXC1DUO2lN?usp=sharing
 
 ### Ubicación de sensores 2.0.pdf
 
@@ -61,139 +62,27 @@ Documento con la ubicación geográfica de los cuatro sensores seleccionados par
 
 ## Origen de los datos
 
-A diferencia de un API REST tradicional, la red **Tangara** expone sus
-datos a través de una instancia **ClickHouse** administrada (repositorio
-de referencia:
-[sebaxtian/clickhouse-tangara](https://github.com/sebaxtian/clickhouse-tangara)),
-protegida detrás de Cloudflare, con conexión TLS/SSL obligatoria.
+Los datos son obtenidos desde la infraestructura de la **Red de Sensores Tángara**, almacenados en una base de datos **ClickHouse**. El pipeline extrae información desde la capa **Plata**, incluyendo variables como **temperatura**, **humedad**, **PM2.5** y la **ubicación del sensor**.
 
-Esa instancia ya implementa su propia arquitectura medallón interna:
+Para este proyecto se utilizan los siguientes sensores seleccionados:
 
-- `tangara_bronce.bronce_tangara_sensores`: datos crudos (String) desde InfluxDB.
-- `tangara_plata.plata_tangara_sensores`: datos tipados, deduplicados
-  (`ReplacingMergeTree`) — columnas relevantes: `time`, `name` (sensor),
-  `geo` (geohash), `tmp` (Temperatura °C), `hum` (Humedad %), `pm25`, `co2`.
-
-Este proyecto se conecta a la capa **Plata** (`tangara_plata`) usando el
-cliente nativo `clickhouse-connect`, y extrae las columnas `tmp`
-(Temperatura), `hum` (Humedad), `geo` (ubicación/geohash) y `pm25`
-(material particulado 2.5), filtrando además por los siguientes
-sensores. El código corto es el **sufijo** del nombre completo del
-sensor (`name`) en ClickHouse:
-
-| Código corto | Nombre completo en ClickHouse |
-|---|---|
-| `2FF6` | `D29ESP32DED2FF6` |
-| `F1AE` | `D29TTGOTD8F1AE` |
-| `1712` | `D29ESP32DEE1712` |
-| `307A` (cero, no letra O) | `D29ESP32DED307A` |
-
-Esta lista se controla con la variable `TANGARA_SENSOR_NAMES` en `.env`
-(separada por comas, solo el código corto). Si la dejas vacía, el
-pipeline trae todos los sensores disponibles.
-
----
+| Código | Nombre del sensor |
+|--------:|-------------------|
+| 2FF6 | D29ESP32DED2FF6 |
+| F1AE | D29TTGOTD8F1AE |
+| 1712 | D29ESP32DEE1712 |
+| 307A | D29ESP32DED307A |
 
 ## Arquitectura
 
 ```text
 
-                 Apache Airflow DAG
-                            │
-                            ▼
 
-              ClickHouse Tangara
-        (tangara_plata.plata_tangara_sensores)
-        tmp + hum + geo + pm25 (Temperatura,
-        Humedad, ubicacion, PM2.5)
-              filtrado por: 2FF6, F1AE, 1712, 307A
-                            │
-                            ▼
 
-┌─────────────────────────────────────────────────────┐
-│ BRONZE LAYER                                        │
-│ PostgreSQL - Schema: bronze                         │
-│                                                     │
-│ bronze.tangara_sensores_api_data                     │
-│                                                     │
-│ • Temperatura, Humedad, geo y PM2.5 crudos           │
-│ • Ingesta incremental (ventana configurable)         │
-└─────────────────────────────────────────────────────┘
-                             │
-                             ▼
-
-┌─────────────────────────────────────────┐
-│ SILVER LAYER                            │
-│ Una tabla por sensor:                   │
-│   silver.stg_tangara_sensor_2ff6        │
-│   silver.stg_tangara_sensor_f1ae        │
-│   silver.stg_tangara_sensor_1712        │
-│   silver.stg_tangara_sensor_307a        │
-│                                         │
-│ - Deduplicacion sensor + timestamp      │
-│ - Validacion de rangos fisicos          │
-│ - Mapeo a codigo corto de sensor        │
-│ - Una lectura ORIGINAL por hora         │
-│   (no promediada; primera lectura       │
-│   real de cada hora)                    │
-│                                         │
-│ Columnas por tabla:                     │
-│   Fecha & Hora | Temperatura (°C) |     │
-│   Humedad (%)                           │
-└─────────────────────────────────────────┘
-
-     (rama independiente, datos estaticos)
-
-datos_train_test/*.csv (Sensor <codigo> Train/Test.csv)
-                             │
-                             ▼
-
-┌─────────────────────────────────────────┐
-│ SILVER LAYER (train/test)               │
-│   silver.sensor_2ff6_train / _test      │
-│   silver.sensor_f1ae_train / _test      │
-│   silver.sensor_1712_train / _test      │
-│   silver.sensor_307a_train / _test      │
-│                                         │
-│ Se cargan tal cual, sin transformar     │
-└─────────────────────────────────────────┘
-                             │
-                             ▼
-
-              (Próximamente: modelo de ML)
 
 ```
 
----
 
-## Estructura del proyecto
-
-```text
-tangara-airflow-pipeline/
-├── dags/
-│   └── tangara_pipeline_dag.py
-├── src/
-│   ├── __init__.py
-│   ├── extract_tangara_data.py       # ClickHouse -> Bronze
-│   ├── transform_tangara_data.py     # Bronze -> Silver
-│   └── load_train_test_csv_data.py   # CSV estaticos -> Silver
-├── datos_train_test/
-│   ├── Sensor 2FF6 Train.csv
-│   ├── Sensor 2FF6 Test.csv
-│   ├── Sensor F1AE Train.csv
-│   ├── Sensor F1AE Test.csv
-│   ├── Sensor 1712 Train.csv
-│   ├── Sensor 1712 Test.csv
-│   ├── Sensor 307A Train.csv
-│   └── Sensor 307A Test.csv
-├── .gitignore
-├── .pre-commit-config.yaml
-├── docker-compose.yml
-├── Dockerfile
-├── env.example
-├── README.md
-└── requirements.txt
-```
 
 ---
 
