@@ -84,14 +84,14 @@ Para el desarrollo del proyecto se utilizaron los siguientes sensores:
 
 ## Arquitectura
 
-```text
 <p align="center">
   <img src="docs/t1.png" alt="Arquitectura del proyecto" width="1000">
 </p>
 
 
 
-```
+
+
 # Requisitos Previos
 
 Antes de ejecutar el proyecto, asegúrate de contar con lo siguiente:
