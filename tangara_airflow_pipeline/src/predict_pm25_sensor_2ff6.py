@@ -44,12 +44,7 @@ def load_model():
 
 
 def load_silver_data():
-    """
-    Lee siempre del Postgres LOCAL: es la fuente de verdad que el
-    propio pipeline usa para generar sus predicciones. El Postgres
-    de Render (si esta configurado) solo recibe una copia de las
-    escrituras, no se usa como origen de lectura.
-    """
+
 
     print(
         f"=== LEYENDO SILVER: {SILVER_SCHEMA}.{SILVER_TABLE} ==="
@@ -72,12 +67,7 @@ def load_silver_data():
 
 
 def build_features(df):
-    """
-    Genera las columnas de lag de PM2.5 y renombra Temperatura /
-    Humedad al nombre exacto que espera el modelo. Descarta las
-    filas que no alcanzan a tener historico suficiente para todos
-    los lags (igual que se hizo en el entrenamiento original).
-    """
+
 
     df = df.copy()
 

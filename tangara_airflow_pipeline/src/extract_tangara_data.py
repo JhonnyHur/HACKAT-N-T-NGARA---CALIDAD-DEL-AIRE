@@ -1,5 +1,4 @@
 
-
 import os
 
 from zoneinfo import ZoneInfo
@@ -96,20 +95,6 @@ def extract_api_data():
         if name.strip()
     ]
 
-    # =====================================
-    # EXTRACCION INCREMENTAL: se retoma desde el ultimo timestamp
-    # ya guardado en bronze. Si bronze esta vacia (primera
-    # corrida), se retoma desde TANGARA_START_DATE. Ademas,
-    # TANGARA_START_DATE actua como un PISO DURO: pase lo que pase
-    # (bronze vacia, corrupta, reseteada, etc.), nunca se trae de
-    # ClickHouse nada anterior a esa fecha.
-    #
-    # TANGARA_START_DATE se interpreta en hora Cali/Colombia (ej.
-    # "2026-07-01 00:00:00" = medianoche del 1 de julio en Cali),
-    # igual que el resto del pipeline, y se convierte a UTC
-    # unicamente para poder compararla contra ClickHouse.
-    # =====================================
-
     start_date_cali = pd.Timestamp(start_date)
     start_date_utc = cali_to_utc(start_date_cali)
 
@@ -117,9 +102,6 @@ def extract_api_data():
 
     if last_extracted_time:
 
-        # last_extracted_time viene en hora Cali (asi se guarda en
-        # bronze); se reconvierte a UTC porque asi es como
-        # ClickHouse almacena y compara la columna "time".
         since_time_incremental = cali_to_utc(last_extracted_time)
 
         since_time = max(since_time_incremental, start_date_utc)
@@ -170,10 +152,6 @@ def extract_api_data():
 
     if sensor_names:
 
-        # Los codigos cortos (ej. 2FF6) son el sufijo final del
-        # nombre completo del sensor en ClickHouse
-        # (ej. D29ESP32DED2FF6), por eso se filtra con LIKE
-        # en vez de una igualdad exacta.
 
         sensor_conditions = " OR ".join(
             f"name LIKE '%{name}'" for name in sensor_names
@@ -202,11 +180,6 @@ def extract_api_data():
 
     if len(df) > 0:
 
-        # ClickHouse devuelve "time" en UTC (ej.
-        # 2026-07-26T04:15:05Z). Se convierte a hora de
-        # Cali/Colombia antes de guardar en bronze, y se deja como
-        # datetime naive (sin info de zona) para simplificar su
-        # uso en el resto del pipeline.
         df["time"] = (
             pd.to_datetime(df["time"], utc=True)
             .dt.tz_convert(CALI_TZ)

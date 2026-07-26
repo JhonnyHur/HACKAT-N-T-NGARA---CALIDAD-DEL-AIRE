@@ -1,32 +1,3 @@
-"""
-app.py
-
-Dashboard "Predicción de PM2.5 Hackatón Tangara".
-
-Antes usaba MongoDB Atlas; ahora se conecta directamente a la misma
-base PostgreSQL que llena el pipeline de Airflow
-(https://github.com/... proyecto tangara-airflow-pipeline), leyendo
-las tablas de la capa Silver que ya trae los datasets de
-entrenamiento/prueba por sensor:
-
-    silver.sensor_<codigo>_train
-    silver.sensor_<codigo>_test
-
-Donde <codigo> es uno de: 2ff6, f1ae, 1712, 307a.
-
-Secciones del dashboard:
-    - Predicciones: por ahora vacia, a la espera de conectar el
-      modelo de Machine Learning.
-    - Train: datos reales medidos (sin prediccion).
-    - Test: datos reales + la prediccion del modelo (si el CSV
-      cargado la trae).
-
-Como no se conoce de antemano el nombre exacto de cada columna en
-los CSV originales (pueden variar ligeramente entre sensores), las
-columnas relevantes (fecha, PM2.5, prediccion, temperatura, humedad,
-lat, long) se detectan por coincidencia de palabras clave en el
-nombre de columna, en vez de asumir un nombre fijo.
-"""
 
 import os
 
@@ -47,15 +18,11 @@ engine = create_engine(DATABASE_URL)
 
 SCHEMA = "silver"
 
-# Capa Gold: tabla de predicciones del modelo XGBoost, solo
-# disponible por ahora para el sensor 2FF6 (unico con modelo
-# entrenado). La genera la tarea de Airflow
-# predict_and_load_gold_sensor_2ff6.
+
 GOLD_SCHEMA = "gold"
 GOLD_SENSOR_ID = "2ff6"
 GOLD_TABLE = "sensor_2ff6_predicciones"
 
-# codigo de tabla -> nombre real del sensor mostrado en el dashboard
 SENSORS = {
     "2ff6": "Sensor 2FF6",
     "f1ae": "Sensor F1AE",
@@ -88,12 +55,6 @@ def get_table_columns(conn, table, schema=SCHEMA):
 
 
 def find_column(columns, *keywords, exclude=None):
-    """
-    Busca la primera columna cuyo nombre (en minusculas) contenga
-    TODAS las palabras clave dadas, ignorando las columnas que
-    empiecen con `exclude` (ej. para no confundir la columna de
-    PM2.5 real con la de PM2.5 predicho).
-    """
 
     for column in columns:
 
@@ -111,11 +72,6 @@ def find_column(columns, *keywords, exclude=None):
 
 
 def build_date_filter(date_col, start_date, end_date):
-    """
-    Construye la clausula WHERE (y sus parametros) para filtrar por
-    rango de fechas sobre `date_col`. Devuelve ("", {}) si no hay
-    fechas o no hay columna de fecha detectada.
-    """
 
     clauses = []
     params = {}
@@ -137,20 +93,6 @@ def build_date_filter(date_col, start_date, end_date):
 
 def sensor_snapshot(conn, schema, table, start_date, end_date,
                      pm25_keyword="pm2", exclude_pred="pred"):
-    """
-    Devuelve la ubicacion y el PM2.5 relevante de un sensor a
-    partir de una tabla (Silver Test o Gold):
-
-    - Si se dan start_date/end_date: el PM2.5 es el PROMEDIO de
-      todos los registros reales en ese rango (mode="average").
-    - Si no: el PM2.5 es el dato mas reciente (mode="latest"),
-      igual que el comportamiento original.
-
-    La ubicacion (lat/long) SIEMPRE se toma de la fila mas reciente
-    con coordenadas no nulas -- el sensor es fijo, asi que no tiene
-    sentido promediarla, y usar siempre la mas reciente evita
-    arrastrar una coordenada vieja/incorrecta.
-    """
 
     columns = get_table_columns(conn, table, schema=schema)
 
@@ -218,17 +160,6 @@ def sensor_snapshot(conn, schema, table, start_date, end_date,
             "range_end": range_end,
         }
 
-    # IMPORTANTE: no basta con "la fila mas reciente por fecha".
-    # En gold.sensor_2ff6_predicciones, ademas de las filas
-    # historicas (dato real conocido), siempre hay 6 filas de
-    # PRONOSTICO a futuro (PM2.5_Real nulo, ver
-    # predict_next_hours_sensor_2ff6.py) con fecha posterior a la
-    # ultima real -- si se ordenara solo por fecha, siempre se
-    # devolveria una de esas filas de pronostico (PM2.5 nulo -> el
-    # marcador del mapa se ve gris/"Sin dato"). Por eso aqui se
-    # exige explicitamente que pm25_col no sea nulo antes de tomar
-    # la mas reciente: la ultima fila con DATO REAL, sin importar
-    # si hay filas de pronostico mas nuevas encima.
     row = conn.execute(
         text(
             f'SELECT * FROM {schema}."{table}" '
@@ -291,12 +222,6 @@ def normalize_rows(rows, columns, has_prediction):
 
 
 def normalize_prediction_rows(rows, columns):
-    """
-    Normaliza filas de gold.sensor_2ff6_predicciones (Fecha & Hora,
-    Temperatura, Humedad, PM2.5_Real, PM2.5_Predicho), detectando
-    columnas por palabra clave igual que normalize_rows, para no
-    depender de que el nombre exacto no cambie nunca.
-    """
 
     date_col = find_column(columns, "fecha")
     temp_col = find_column(columns, "temperatura")
@@ -361,18 +286,6 @@ def debug_tables():
 
 @app.route("/api/sensors")
 def api_sensors():
-    """
-    Marcadores del mapa. Sin start/end: ubicacion + PM2.5 mas
-    reciente por sensor (comportamiento original). Con start/end:
-    ubicacion (siempre la mas reciente) + PM2.5 PROMEDIADO en ese
-    rango de fechas.
-
-    Para el sensor 2FF6 se prioriza gold.sensor_2ff6_predicciones
-    (coordenadas decodificadas en vivo desde ClickHouse, mas
-    confiables) sobre el CSV Test estatico; si Gold no tiene datos
-    disponibles, cae de vuelta al CSV Test igual que los demas
-    sensores.
-    """
 
     start_date = request.args.get("start")
     end_date = request.args.get("end")
@@ -519,16 +432,7 @@ def api_data(sensor_id, split):
 
 @app.route("/api/predicciones")
 def api_predicciones():
-    """
-    Predicciones de PM2.5 para el sensor 2FF6 (unico sensor con
-    modelo de Machine Learning entrenado por ahora), leidas de
-    gold.sensor_2ff6_predicciones. Esa tabla la genera la tarea de
-    Airflow predict_and_load_gold_sensor_2ff6, y puede no existir
-    todavia (por ejemplo, si el DAG nunca ha corrido, o si el
-    sensor aun no acumula las 24 horas de historico que necesita
-    el modelo) — en ese caso se devuelve una respuesta vacia en vez
-    de un error.
-    """
+
 
     start_date = request.args.get("start")
     end_date = request.args.get("end")

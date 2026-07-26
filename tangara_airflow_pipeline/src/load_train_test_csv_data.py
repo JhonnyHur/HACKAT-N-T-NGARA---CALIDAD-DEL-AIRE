@@ -1,35 +1,4 @@
-"""
-Script: load_train_test_csv_data.py
 
-Descripcion:
-    Carga a la capa Silver (PostgreSQL) los datasets de
-    entrenamiento/prueba (train/test) que ya vienen preparados
-    como archivos CSV, uno por sensor y por split, ubicados en la
-    carpeta `datos_train_test/` en la raiz del proyecto:
-
-        Sensor 2FF6 Train.csv   Sensor 2FF6 Test.csv
-        Sensor F1AE Train.csv   Sensor F1AE Test.csv
-        Sensor 1712 Train.csv   Sensor 1712 Test.csv
-        Sensor 307A Train.csv   Sensor 307A Test.csv
-
-    A diferencia del resto del pipeline (que extrae en vivo desde
-    ClickHouse), estos archivos son estaticos: se cargan tal cual
-    vienen, con sus columnas originales, sin transformar.
-
-    Tablas resultantes en Silver:
-
-        silver.sensor_2ff6_train   silver.sensor_2ff6_test
-        silver.sensor_f1ae_train   silver.sensor_f1ae_test
-        silver.sensor_1712_train   silver.sensor_1712_test
-        silver.sensor_307a_train   silver.sensor_307a_test
-
-Variables de entorno:
-    DATABASE_URL (opcional; Postgres destino. Si no se define, usa
-    el Postgres local del docker-compose)
-
-Ejecucion:
-    python load_train_test_csv_data.py
-"""
 
 import os
 

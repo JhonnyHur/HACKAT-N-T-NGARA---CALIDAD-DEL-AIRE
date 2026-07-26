@@ -60,27 +60,19 @@ import pygeohash as pgh
 from sqlalchemy import create_engine, text
 
 
-# Postgres origen/destino: por defecto el del docker-compose local
-# (servicio "postgres"). Se puede sobreescribir con DATABASE_URL
-# en el .env para apuntar, por ejemplo, a un Postgres administrado
-# en Render.
+
 DATABASE_URL = os.environ.get("DATABASE_URL") or (
     "postgresql+psycopg2://ai_admin:ai_admin@postgres:5432/ai_project"
 )
 
-# "Fecha & Hora" en bronze ya viene en hora de Cali/Colombia (la
-# conversion se hace en extract_tangara_data.py), por eso aqui la
-# hora actual tambien se calcula en esa misma zona horaria.
+
 CALI_TZ = ZoneInfo("America/Bogota")
 
-# Margen de seguridad (en minutos) que se espera DESPUES de que una
-# hora termina, antes de darla por completa y promediarla. Da chance
-# a que terminen de llegar a bronze lecturas tardias de esa hora.
+
 HORA_MARGEN_MINUTOS = 5
 
-# =====================================
 # MAPEO: nombre completo (sufijo) -> codigo corto del sensor
-# =====================================
+
 
 SENSOR_CODES = [
     "2FF6",
@@ -102,13 +94,7 @@ def map_sensor_code(full_name):
 
 
 def decode_geohash(geohash_value):
-    """
-    Decodifica un geohash (ej. "d2b4z9x...") a una tupla
-    (latitud, longitud). Si el valor viene vacio, nulo, o no se
-    puede decodificar (geohash invalido), devuelve (None, None) en
-    vez de lanzar una excepcion, para no tumbar toda la
-    transformacion por un solo registro con geo mal formado.
-    """
+
 
     if pd.isna(geohash_value):
 
@@ -187,9 +173,6 @@ def transform_api_data():
         f"{records_before_validation - records_after_validation}"
     )
 
-    # PM2.5 no se usa para descartar registros (puede venir nulo
-    # ocasionalmente); solo se descartan valores negativos, que son
-    # fisicamente imposibles, dejando el resto de la fila intacta.
 
     invalid_pm25_count = (df["pm25"] < 0).sum()
 
@@ -203,9 +186,7 @@ def transform_api_data():
 
         df.loc[df["pm25"] < 0, "pm25"] = None
 
-    # =====================================
     # RENOMBRAR / ESTANDARIZAR COLUMNAS
-    # =====================================
 
     transformed_df = pd.DataFrame()
 
@@ -215,9 +196,9 @@ def transform_api_data():
     transformed_df["Humedad (%)"] = df["hum"].round(1)
     transformed_df["PM2.5 (µg/m³)"] = df["pm25"].round(1)
 
-    # =====================================
+
     # DECODIFICACION DE GEOHASH -> LATITUD / LONGITUD
-    # =====================================
+
 
     print("=== DECODIFICANDO GEOHASH (geo -> Latitud / Longitud) ===")
 
@@ -268,14 +249,6 @@ def transform_api_data():
 
     print(f"Registros antes de promediar por hora: {len(transformed_df)}")
 
-    # =====================================
-    # PROMEDIO POR HORA
-    # (todas las lecturas que caen dentro de una misma hora, ej.
-    # de 1pm a 2pm, se promedian y quedan como un unico dato en
-    # esa hora, ej. la 1pm. Latitud/Longitud no se promedian:
-    # se conserva la primera, ya que la ubicacion del sensor no
-    # cambia dentro de la hora)
-    # =====================================
 
     transformed_df["Hora_Referencia"] = (
         transformed_df["Fecha & Hora"].dt.floor("h")
@@ -297,14 +270,6 @@ def transform_api_data():
         columns={"Hora_Referencia": "Fecha & Hora"}
     )
 
-    # =====================================
-    # FILTRO DE HORA COMPLETA
-    # Una hora (ej. 11:00-12:00) solo se publica en silver una vez
-    # que ya termino por completo, mas un pequeno margen de espera
-    # (HORA_MARGEN_MINUTOS) para datos tardios. Ej.: si ahora son
-    # las 11:xx, la hora 11 todavia no aparece; recien se ve pasadas
-    # las 12:05 (con el margen por defecto de 5 minutos).
-    # =====================================
 
     ahora_cali = datetime.now(CALI_TZ).replace(tzinfo=None)
 
@@ -354,9 +319,8 @@ def transform_api_data():
 
     print(f"Registros tras promediar por hora: {len(transformed_df)}")
 
-    # =====================================
     # CARGA A SILVER - UNA TABLA POR SENSOR
-    # =====================================
+  
 
     with engine.begin() as conn:
 

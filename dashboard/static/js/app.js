@@ -1,14 +1,8 @@
-// =====================================================
+
 // VISTA POR DEFECTO (CALI) Y VALIDACION DE COORDENADAS
-// =====================================================
 
 const CALI_CENTER = [3.4516, -76.532];
 const CALI_DEFAULT_ZOOM = 12;
-
-// Caja amplia alrededor de Cali / Valle del Cauca: solo coordenadas
-// dentro de este rango se usan para centrar/ajustar el mapa
-// automaticamente. Evita que una coordenada mal cargada (ej. desde
-// un CSV de train/test) mande la vista a otra parte del mapa.
 const CALI_BOUNDS = L.latLngBounds([3.10, -76.90], [3.75, -76.20]);
 
 function hasValidCoords(sensor) {
@@ -22,14 +16,9 @@ function hasValidCoords(sensor) {
   );
 }
 
-// =====================================================
-// ESCALA DE CALIDAD DEL AIRE (basada en PM2.5, µg/m³)
-// =====================================================
 
-// Unico sensor con dashboard completo (modelo entrenado, mapa con
-// ubicacion en vivo, etc.) por ahora. Se usa para: seleccionarlo
-// por defecto, mostrarlo primero en la lista y deshabilitar los
-// demas sensores con un badge "Proximamente".
+// ESCALA DE CALIDAD DEL AIRE (basada en PM2.5, µg/m³)
+
 const PRIMARY_SENSOR_ID = "2ff6";
 
 const AQI_LEVELS = [
@@ -77,19 +66,11 @@ function addAQILegend(map) {
   legend.addTo(map);
 }
 
-// =====================================================
 // TABS
-// =====================================================
 
 const tabButtons = document.querySelectorAll(".tab-btn");
 const tabPanels = document.querySelectorAll(".tab-panel");
 
-// Registro de instancias de mapa de Leaflet por panel: los mapas de
-// las pestañas Train/Test se crean mientras esa pestaña esta oculta
-// (display: none), asi que Leaflet mide el contenedor en 0x0 y el
-// mapa se ve mal (solo un pedazo de tiles arriba a la izquierda).
-// Por eso, al activar una pestaña, forzamos invalidateSize() sobre
-// su mapa para que recalcule su tamaño real.
 const panelMaps = new Map();
 
 tabButtons.forEach((btn) => {
@@ -107,24 +88,20 @@ tabButtons.forEach((btn) => {
     const map = panelMaps.get(activePanel);
 
     if (map) {
-      // El cambio de "display: none" a "block" tarda un tick en
-      // reflejarse en el layout, por eso el invalidateSize se
-      // dispara en el siguiente frame en vez de inmediatamente.
+
       requestAnimationFrame(() => map.invalidateSize());
     }
   });
 });
 
-// =====================================================
 // ESTADO POR CADA VISTA (TRAIN / TEST)
-// =====================================================
 
 const datasetViews = document.querySelectorAll(".dataset-view");
 
 datasetViews.forEach((panel) => initDatasetView(panel));
 
 function initDatasetView(panel) {
-  const split = panel.dataset.split; // "train" | "test"
+  const split = panel.dataset.split;
 
   const state = {
     sensorId: SENSORS[PRIMARY_SENSOR_ID]
@@ -153,10 +130,6 @@ function initDatasetView(panel) {
     loadData(panel, state, split);
   }
 
-  // --- Botones de sensor con nombre real. El sensor primario
-  // (2FF6) va primero y es el unico habilitado; los demas se
-  // muestran deshabilitados con un badge "Proximamente", ya que
-  // todavia no tienen modelo/dashboard propio. ---
   const sensorEntries = Object.entries(SENSORS).sort(
     ([a], [b]) => (a === PRIMARY_SENSOR_ID ? -1 : b === PRIMARY_SENSOR_ID ? 1 : 0)
   );
@@ -202,7 +175,6 @@ function initDatasetView(panel) {
     refreshSensorMarkers(state, null, null);
   });
 
-  // --- Mapa base, con todos los sensores y escala de calidad del aire ---
   const mapEl = panel.querySelector(".leaflet-map");
   state.map = L.map(mapEl, {
     center: CALI_CENTER,
@@ -221,8 +193,6 @@ function initDatasetView(panel) {
 
   panelMaps.set(panel, state.map);
 
-  // Si el panel ya esta visible al cargar la pagina, igual conviene
-  // forzar el recalculo de tamaño una vez que el layout se asiente.
   requestAnimationFrame(() => state.map.invalidateSize());
 
   addAQILegend(state.map);
@@ -236,9 +206,8 @@ function initDatasetView(panel) {
   }
 }
 
-// =====================================================
+
 // MARCADORES DE TODOS LOS SENSORES EN EL MAPA
-// =====================================================
 
 function formatFullDateES(date) {
   return `${date.getDate()} de ${MESES_ES[date.getMonth()]}`;
@@ -316,10 +285,6 @@ async function loadSensorMarkers(state, panel, onSensorClick) {
 
       state.sensorMarkers[sensor.id] = marker;
 
-      // Solo las coordenadas dentro del area esperada (Cali /
-      // Valle del Cauca) se usan para reencuadrar el mapa
-      // automaticamente. Una coordenada fuera de rango no mueve
-      // la vista, pero el marcador igual se dibuja.
       if (CALI_BOUNDS.contains([lat, long])) {
         coords.push([lat, long]);
       }
@@ -398,9 +363,7 @@ function highlightSensorMarker(state) {
   });
 }
 
-// =====================================================
 // CARGA DE DATOS DESDE LA API
-// =====================================================
 
 async function loadData(panel, state, split) {
   const statusLine = panel.querySelector(".status-line");
@@ -440,9 +403,7 @@ async function loadData(panel, state, split) {
   }
 }
 
-// =====================================================
 // RANGO DE FECHAS PARA LOS TITULOS DE LAS GRAFICAS
-// =====================================================
 
 const MESES_ES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -486,9 +447,7 @@ function setChartTitle(canvas, baseTitle, rangeText) {
   heading.textContent = rangeText ? `${baseTitle}, ${rangeText}` : baseTitle;
 }
 
-// =====================================================
 // TARJETA DE RESUMEN DE CALIDAD DEL AIRE (AQI)
-// =====================================================
 
 function buildAQISummary(records, pm25Field) {
   const counts = AQI_LEVELS.map(() => 0);
@@ -647,9 +606,7 @@ function renderAQISummary(panel, records, pm25Field) {
   `;
 }
 
-// =====================================================
 // GRAFICAS
-// =====================================================
 
 function clearCharts(state) {
   Object.values(state.charts).forEach((chart) => chart && chart.destroy());
@@ -770,9 +727,7 @@ function chartOptions() {
   };
 }
 
-// =====================================================
 // PESTAÑA PREDICCIONES (Gold — solo sensor 2FF6)
-// =====================================================
 
 const prediccionesPanel = document.querySelector(".prediction-view");
 
@@ -1048,9 +1003,8 @@ function renderForecastCard(panel, state, records) {
     },
   });
 }
-// =====================================================
+
 // TARJETA: REGISTROS FUERA DE LA CATEGORIA BUENA
-// =====================================================
 
 function formatFullDateTimeES(fecha) {
   const date = new Date(fecha);
@@ -1085,9 +1039,6 @@ function renderAlertsTable(panel, records, pm25Field) {
     return;
   }
 
-  // "Fuera de la categoria buena" = supera el techo del primer
-  // nivel de AQI_LEVELS (el nivel "verde"/bueno), sin importar el
-  // nombre exacto que tenga esa categoria.
   const goodCeiling = AQI_LEVELS[0].max;
 
   const flagged = records

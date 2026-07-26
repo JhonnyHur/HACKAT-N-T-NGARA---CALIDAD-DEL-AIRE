@@ -1,51 +1,3 @@
-"""
-Script: predict_next_hours_sensor_2ff6.py
-
-Descripcion:
-    Capa Gold del pipeline. Genera un PRONOSTICO RECURSIVO de las
-    proximas N_HORAS_PREDICCION horas (por defecto 6) de PM2.5 para
-    el sensor 2FF6, usando el mismo modelo XGBoost ya entrenado
-    (modelo_xgboost_sensor_2FF6.joblib) y el mismo historico de
-    Silver (silver.stg_tangara_sensor_2ff6) que usa
-    predict_pm25_sensor_2ff6.py, del cual este script reutiliza el
-    modelo, la lectura de Silver y las constantes (para no duplicar
-    esa logica).
-
-    Es "recursivo" porque la prediccion de PM2.5 de una hora se
-    encadena como lag para predecir la hora siguiente: la
-    prediccion de la hora 1 pasa a ser el PM2.5_lag_1 de la hora 2,
-    y asi sucesivamente. Temperatura y Humedad se mantienen fijas en
-    el ultimo valor real conocido, ya que el modelo no tiene forma
-    de saber el clima futuro.
-
-    Este script corre en su PROPIO DAG (tangara_forecast_pm25_2ff6),
-    independiente del DAG principal (tangara_pipeline) que corre
-    predict_pm25_sensor_2ff6.py. Ambos escriben en la MISMA tabla
-    Gold (gold.sensor_2ff6_predicciones), pero cada uno solo borra
-    e inserta su propio subconjunto de filas:
-
-        - predict_pm25_sensor_2ff6.py       -> filas con
-          "PM2.5_Real (µg/m³)" NO nulo (historico ya conocido).
-        - predict_next_hours_sensor_2ff6.py -> filas con
-          "PM2.5_Real (µg/m³)" nulo (pronostico a futuro, este
-          script).
-
-    Asi, aunque cada uno corra en un DAG distinto y en momentos
-    distintos, ninguno borra el trabajo del otro. En cada corrida,
-    el pronostico de este script se reemplaza por completo (siempre
-    son las N_HORAS_PREDICCION horas siguientes al presente, no se
-    acumula historico de pronosticos viejos).
-
-    Solo aplica al sensor 2FF6: es el unico sensor para el que
-    existe un modelo entrenado por ahora.
-
-Variables de entorno:
-    DATABASE_URL (opcional; Postgres origen/destino. Si no se
-    define, usa el Postgres local del docker-compose)
-
-Ejecucion:
-    python predict_next_hours_sensor_2ff6.py
-"""
 
 import pandas as pd
 
@@ -74,17 +26,7 @@ N_HORAS_PREDICCION = 6
 
 
 def predict_next_hours(model, historial_df, n_horas=N_HORAS_PREDICCION):
-    """
-    Genera el pronostico recursivo, partiendo del ultimo registro
-    real de silver (historial_df, ya ordenado por "Fecha & Hora"
-    ASC, sin filtrar por lags).
 
-    Devuelve un DataFrame con las mismas columnas que la tabla Gold
-    (GOLD_COLUMNS), con "PM2.5_Real (µg/m³)" en None ya que esas
-    horas todavia no han pasado. Si no hay suficiente historico
-    (se necesitan al menos 24 horas reales para el primer lag_24),
-    devuelve None.
-    """
 
     if len(historial_df) < max(LAGS):
 
@@ -153,12 +95,7 @@ def predict_next_hours(model, historial_df, n_horas=N_HORAS_PREDICCION):
 
 
 def load_forecast_to_gold(engine, forecast_df):
-    """
-    Escribe en Gold SOLO las filas de pronostico (PM2.5_Real nulo),
-    sin tocar las filas historicas que haya dejado el otro DAG
-    (predict_pm25_sensor_2ff6.py). Se borra el pronostico anterior
-    (si existe) y se inserta el nuevo.
-    """
+
 
     ensure_gold_schema(engine)
 
