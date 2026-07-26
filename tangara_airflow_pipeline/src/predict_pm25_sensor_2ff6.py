@@ -1,65 +1,3 @@
-"""
-Script: predict_pm25_sensor_2ff6.py
-
-Descripcion:
-    Capa Gold del pipeline. Genera las predicciones de PM2.5 para
-    el sensor 2FF6, usando el modelo XGBoost ya entrenado
-    (modelo_xgboost_sensor_2FF6.joblib), a partir de los datos en
-    vivo de Silver (silver.stg_tangara_sensor_2ff6).
-
-    El modelo espera 8 variables de entrada, buscadas por nombre
-    (no importa el orden):
-
-        Temperatura_(°C)_2FF6
-        Humedad_(%)_2FF6
-        PM2.5_lag_1
-        PM2.5_lag_2
-        PM2.5_lag_3
-        PM2.5_lag_6
-        PM2.5_lag_12
-        PM2.5_lag_24
-
-    Los "lag" de PM2.5 se calculan a partir del propio historico de
-    silver.stg_tangara_sensor_2ff6 (que ya trae una lectura real
-    por hora, generada por transform_tangara_data.py). Las primeras
-    filas del historico no tienen suficientes horas previas para
-    calcular todos los lags (en particular el lag_24 necesita 24
-    horas de historico) y se descartan, exactamente igual que se
-    hizo al entrenar el modelo originalmente.
-
-    Solo aplica al sensor 2FF6: es el unico sensor para el que
-    existe un modelo entrenado por ahora.
-
-    Tabla resultante en Gold:
-
-        gold.sensor_2ff6_predicciones
-            - Fecha & Hora
-            - Temperatura (°C)
-            - Humedad (%)
-            - PM2.5_Real (µg/m³)
-            - PM2.5_lag_1 (µg/m³)
-            - PM2.5_lag_2 (µg/m³)
-            - PM2.5_lag_3 (µg/m³)
-            - PM2.5_lag_6 (µg/m³)
-            - PM2.5_lag_12 (µg/m³)
-            - PM2.5_lag_24 (µg/m³)
-            - Latitud
-            - Longitud
-            - PM2.5_Predicho (µg/m³)
-
-    Los lags y las coordenadas se dejan en la tabla Gold (ademas de
-    usarse como input del modelo) para que el dashboard pueda, por
-    ejemplo, ubicar el sensor en el mapa o inspeccionar el historico
-    de PM2.5 que uso el modelo para cada prediccion, sin tener que
-    volver a consultar Silver.
-
-Variables de entorno:
-    DATABASE_URL (opcional; Postgres origen/destino. Si no se
-    define, usa el Postgres local del docker-compose)
-
-Ejecucion:
-    python predict_pm25_sensor_2ff6.py
-"""
 
 import os
 
@@ -69,10 +7,6 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 
 
-# Postgres origen/destino: por defecto el del docker-compose local
-# (servicio "postgres"). Se puede sobreescribir con DATABASE_URL
-# en el .env para apuntar, por ejemplo, a un Postgres administrado
-# en Render.
 DATABASE_URL = os.environ.get("DATABASE_URL") or (
     "postgresql+psycopg2://ai_admin:ai_admin@postgres:5432/ai_project"
 )
@@ -85,16 +19,22 @@ SILVER_TABLE = "stg_tangara_sensor_2ff6"
 GOLD_SCHEMA = "gold"
 GOLD_TABLE = "sensor_2ff6_predicciones"
 
-# Mismos lags usados al entrenar el modelo original.
+
 LAGS = [1, 2, 3, 6, 12, 24]
 
-# Nombres EXACTOS que espera el modelo (verificados directamente
-# contra el archivo .joblib). El orden no importa para el modelo
-# (busca por nombre), pero se mantiene consistente aqui.
+
 FEATURE_COLUMNS = [
     "Temperatura_(°C)_2FF6",
     "Humedad_(%)_2FF6",
 ] + [f"PM2.5_lag_{lag}" for lag in LAGS]
+
+
+GOLD_COLUMNS = (
+    ["Fecha & Hora", "Temperatura (°C)", "Humedad (%)"]
+    + ["PM2.5_Real (µg/m³)"]
+    + [f"PM2.5_lag_{lag}" for lag in LAGS]
+    + ["Latitud", "Longitud", "PM2.5_Predicho (µg/m³)"]
+)
 
 
 def load_model():
@@ -169,7 +109,7 @@ def predict_pm25(model, df):
     return df
 
 
-def load_to_gold(engine, df):
+def ensure_gold_schema(engine):
 
     with engine.begin() as conn:
 
@@ -179,29 +119,59 @@ def load_to_gold(engine, df):
             )
         )
 
-    lag_columns = [f"PM2.5_lag_{lag}" for lag in LAGS]
 
-    result_columns = (
+def gold_table_exists(engine):
+
+    with engine.connect() as conn:
+
+        return conn.execute(
+            text(
+                """
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_schema = :schema
+                    AND table_name = :table
+                )
+                """
+            ),
+            {"schema": GOLD_SCHEMA, "table": GOLD_TABLE},
+        ).scalar()
+
+
+def load_to_gold(engine, df):
+    ensure_gold_schema(engine)
+
+    result_df = df[
         ["Fecha & Hora", "Temperatura (°C)", "Humedad (%)", "PM2.5 (µg/m³)"]
-        + lag_columns
+        + [f"PM2.5_lag_{lag}" for lag in LAGS]
         + ["Latitud", "Longitud", "PM2.5_Predicho (µg/m³)"]
-    )
+    ].rename(columns={"PM2.5 (µg/m³)": "PM2.5_Real (µg/m³)"})[GOLD_COLUMNS]
 
-    result_df = df[result_columns].rename(
-        columns={"PM2.5 (µg/m³)": "PM2.5_Real (µg/m³)"}
-    )
+    if gold_table_exists(engine):
+
+        with engine.begin() as conn:
+
+            conn.execute(
+                text(
+                    f'''
+                    DELETE FROM {GOLD_SCHEMA}."{GOLD_TABLE}"
+                    WHERE "PM2.5_Real (µg/m³)" IS NOT NULL
+                    '''
+                )
+            )
 
     result_df.to_sql(
         name=GOLD_TABLE,
         schema=GOLD_SCHEMA,
         con=engine,
-        if_exists="replace",
+        if_exists="append",
         index=False,
     )
 
     print(
         f"Tabla {GOLD_SCHEMA}.{GOLD_TABLE}: "
-        f"{len(result_df)} registros"
+        f"{len(result_df)} registros historicos insertados "
+        "(filas de pronostico, si existen, no se tocan)"
     )
 
 

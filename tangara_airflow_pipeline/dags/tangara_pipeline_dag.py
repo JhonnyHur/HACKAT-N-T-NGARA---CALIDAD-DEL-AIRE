@@ -25,6 +25,10 @@ from predict_pm25_sensor_2ff6 import (
     run_prediction_pipeline
 )
 
+from predict_next_hours_sensor_2ff6 import (
+    run_forecast_pipeline
+)
+
 
 default_args = {
     "owner": "TEAM",
@@ -41,7 +45,7 @@ dag = DAG(
     description="Pipeline Medallon Temperatura y Humedad - Tangara",
     schedule_interval="@hourly",
     catchup=False,
-    tags=["bronze", "silver", "gold", "tangara", "clickhouse"]
+    tags=["bronze", "silver", "gold", "tangara", "clickhouse", "forecast", "pm25", "2ff6"]
 )
 
 
@@ -75,6 +79,11 @@ def gold_prediction_pipeline():
     run_prediction_pipeline()
 
 
+def gold_forecast_pipeline():
+
+    run_forecast_pipeline()
+
+
 extract_and_load_bronze_task = PythonOperator(
     task_id="extract_and_load_bronze_tangara_data",
     python_callable=bronze_pipeline,
@@ -103,10 +112,14 @@ load_train_test_csv_task = PythonOperator(
 )
 
 
-# Bronze -> Silver -> Gold (prediccion PM2.5 sensor 2FF6)
+forecast_pm25_task = PythonOperator(
+    task_id="forecast_pm25_proximas_horas_sensor_2ff6",
+    python_callable=gold_forecast_pipeline,
+    dag=dag,
+)
+
+
+
 extract_and_load_bronze_task >> transform_and_load_silver_task
 transform_and_load_silver_task >> predict_and_load_gold_task
-
-# load_train_test_csv_to_silver sigue siendo independiente: solo
-# lee los CSV estaticos de datos_train_test/, no depende del flujo
-# en vivo ni alimenta la prediccion.
+predict_and_load_gold_task >> forecast_pm25_task
