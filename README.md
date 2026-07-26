@@ -51,6 +51,7 @@ Notebook con el entrenamiento, validación y evaluación del modelo XGBoost util
 ### Sensores.xlsx
 
 Análisis exploratorio de los registros históricos (enero de 2023 a junio de 2026) para la selección de los sensores utilizados en el desarrollo del modelo.
+
 DATA HISTORICA: https://drive.google.com/drive/folders/1nFosDZsS_br2JzNnk9DQLsYXC1DUO2lN?usp=sharing
 
 ### Ubicación de sensores 2.0.pdf
