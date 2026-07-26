@@ -164,15 +164,23 @@ admin
 
 # Conexión a PostgreSQL Local
 
-### GENERAL
+### Pestaña: General
 
 Name
 
 ```text
-ai-project-postgres
+ProyectoTangara
 ```
 
-### CONNECTION
+Server group
+
+```text
+Servers
+```
+
+---
+
+### Pestaña: Connection
 
 Host name/address
 
@@ -203,6 +211,8 @@ Password
 ```text
 ai_admin
 ```
+
+
 
 ---
 
