@@ -110,6 +110,138 @@ def find_column(columns, *keywords, exclude=None):
     return None
 
 
+def build_date_filter(date_col, start_date, end_date):
+    """
+    Construye la clausula WHERE (y sus parametros) para filtrar por
+    rango de fechas sobre `date_col`. Devuelve ("", {}) si no hay
+    fechas o no hay columna de fecha detectada.
+    """
+
+    clauses = []
+    params = {}
+
+    if date_col and start_date:
+
+        clauses.append(f'"{date_col}" >= :start_date')
+        params["start_date"] = start_date
+
+    if date_col and end_date:
+
+        clauses.append(f'"{date_col}" <= :end_date')
+        params["end_date"] = end_date
+
+    where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+
+    return where_sql, params
+
+
+def sensor_snapshot(conn, schema, table, start_date, end_date,
+                     pm25_keyword="pm2", exclude_pred="pred"):
+    """
+    Devuelve la ubicacion y el PM2.5 relevante de un sensor a
+    partir de una tabla (Silver Test o Gold):
+
+    - Si se dan start_date/end_date: el PM2.5 es el PROMEDIO de
+      todos los registros reales en ese rango (mode="average").
+    - Si no: el PM2.5 es el dato mas reciente (mode="latest"),
+      igual que el comportamiento original.
+
+    La ubicacion (lat/long) SIEMPRE se toma de la fila mas reciente
+    con coordenadas no nulas -- el sensor es fijo, asi que no tiene
+    sentido promediarla, y usar siempre la mas reciente evita
+    arrastrar una coordenada vieja/incorrecta.
+    """
+
+    columns = get_table_columns(conn, table, schema=schema)
+
+    if not columns:
+
+        return None
+
+    date_col = find_column(columns, "fecha")
+    pm25_col = find_column(columns, pm25_keyword, exclude=exclude_pred)
+    lat_col = find_column(columns, "lat")
+    long_col = find_column(columns, "long")
+
+    if not date_col or not pm25_col:
+
+        return None
+
+    lat, long_ = None, None
+
+    if lat_col and long_col:
+
+        loc_row = conn.execute(
+            text(
+                f'SELECT "{lat_col}", "{long_col}" '
+                f'FROM {schema}."{table}" '
+                f'WHERE "{lat_col}" IS NOT NULL '
+                f'AND "{long_col}" IS NOT NULL '
+                f'ORDER BY "{date_col}" DESC LIMIT 1'
+            )
+        ).fetchone()
+
+        if loc_row:
+
+            lat, long_ = loc_row[0], loc_row[1]
+
+    if start_date or end_date:
+
+        where_sql, params = build_date_filter(
+            date_col, start_date, end_date
+        )
+
+        pm25_filter = f'"{pm25_col}" IS NOT NULL'
+        where_sql = (
+            f"{where_sql} AND {pm25_filter}" if where_sql
+            else f"WHERE {pm25_filter}"
+        )
+
+        agg_row = conn.execute(
+            text(
+                f'SELECT AVG("{pm25_col}"), MIN("{date_col}"), '
+                f'MAX("{date_col}"), COUNT(*) '
+                f'FROM {schema}."{table}" {where_sql}'
+            ),
+            params,
+        ).fetchone()
+
+        avg_pm25, range_start, range_end, count = agg_row
+
+        return {
+            "lat": lat,
+            "long": long_,
+            "pm25": round(float(avg_pm25), 1) if count else None,
+            "fecha": range_end,
+            "mode": "average",
+            "range_start": range_start,
+            "range_end": range_end,
+        }
+
+    row = conn.execute(
+        text(
+            f'SELECT * FROM {schema}."{table}" '
+            f'ORDER BY "{date_col}" DESC LIMIT 1'
+        )
+    ).fetchone()
+
+    if not row:
+
+        return None
+
+    row_dict = dict(zip(columns, row))
+
+    return {
+        "lat": lat if lat is not None else row_dict.get(lat_col),
+        "long": long_ if long_ is not None else row_dict.get(long_col),
+        "pm25": row_dict.get(pm25_col),
+        "fecha": row_dict.get(date_col),
+        "mode": "latest",
+        "range_start": None,
+        "range_end": None,
+    }
+
+
 def normalize_rows(rows, columns, has_prediction):
 
     date_col = find_column(columns, "fecha")
@@ -217,6 +349,21 @@ def debug_tables():
 
 @app.route("/api/sensors")
 def api_sensors():
+    """
+    Marcadores del mapa. Sin start/end: ubicacion + PM2.5 mas
+    reciente por sensor (comportamiento original). Con start/end:
+    ubicacion (siempre la mas reciente) + PM2.5 PROMEDIADO en ese
+    rango de fechas.
+
+    Para el sensor 2FF6 se prioriza gold.sensor_2ff6_predicciones
+    (coordenadas decodificadas en vivo desde ClickHouse, mas
+    confiables) sobre el CSV Test estatico; si Gold no tiene datos
+    disponibles, cae de vuelta al CSV Test igual que los demas
+    sensores.
+    """
+
+    start_date = request.args.get("start")
+    end_date = request.args.get("end")
 
     result = []
 
@@ -224,51 +371,58 @@ def api_sensors():
 
         for sensor_id, label in SENSORS.items():
 
-            table = table_name(sensor_id, "test")
+            snapshot = None
 
-            try:
+            if sensor_id == GOLD_SENSOR_ID:
 
-                columns = get_table_columns(conn, table)
+                try:
 
-                if not columns:
-
-                    continue
-
-                date_col = find_column(columns, "fecha")
-
-                order_sql = (
-                    f'ORDER BY "{date_col}" DESC' if date_col else ""
-                )
-
-                row = conn.execute(
-                    text(
-                        f'SELECT * FROM {SCHEMA}."{table}" '
-                        f'{order_sql} LIMIT 1'
+                    snapshot = sensor_snapshot(
+                        conn, GOLD_SCHEMA, GOLD_TABLE,
+                        start_date, end_date,
+                        pm25_keyword="real", exclude_pred="pred",
                     )
-                ).fetchone()
 
-                if not row:
+                except Exception as error:
+
+                    print(
+                        f"[AVISO] No se pudo leer ubicacion desde "
+                        f"Gold para '{sensor_id}': {error}"
+                    )
+
+                    snapshot = None
+
+            if snapshot is None:
+
+                table = table_name(sensor_id, "test")
+
+                try:
+
+                    snapshot = sensor_snapshot(
+                        conn, SCHEMA, table, start_date, end_date
+                    )
+
+                except Exception as error:
+
+                    print(f"[AVISO] No se pudo leer '{table}': {error}")
 
                     continue
 
-                normalized = normalize_rows(
-                    [row], columns, has_prediction=True
-                )[0]
-
-                result.append({
-                    "id": sensor_id,
-                    "label": label,
-                    "lat": normalized["lat"],
-                    "long": normalized["long"],
-                    "last_pm25": normalized["pm25"],
-                    "last_fecha": normalized["fecha"],
-                })
-
-            except Exception as error:
-
-                print(f"[AVISO] No se pudo leer '{table}': {error}")
+            if snapshot is None:
 
                 continue
+
+            result.append({
+                "id": sensor_id,
+                "label": label,
+                "lat": snapshot["lat"],
+                "long": snapshot["long"],
+                "last_pm25": snapshot["pm25"],
+                "last_fecha": snapshot["fecha"],
+                "mode": snapshot["mode"],
+                "range_start": snapshot["range_start"],
+                "range_end": snapshot["range_end"],
+            })
 
     return jsonify(result)
 

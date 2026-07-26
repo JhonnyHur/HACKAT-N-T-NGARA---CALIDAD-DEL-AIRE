@@ -471,3 +471,96 @@ main {
   font-size: 0.85rem;
   color: var(--text-muted);
 }
+
+/* =====================================================
+   TARJETA: REGISTROS FUERA DE LA CATEGORIA BUENA
+   ===================================================== */
+
+.alerts-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 20px;
+}
+
+.alerts-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.alerts-header h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.alerts-count {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.alerts-body {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.alerts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.alerts-table th {
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 500;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+}
+
+.alerts-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.alerts-table td .aqi-swatch {
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.alerts-empty {
+  margin: 4px 0 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* =====================================================
+   SENSORES SIN DASHBOARD TODAVIA ("Proximamente")
+   ===================================================== */
+
+.sensor-btn--soon {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.sensor-btn--soon:hover {
+  opacity: 0.55;
+}
+
+.sensor-btn-badge {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}

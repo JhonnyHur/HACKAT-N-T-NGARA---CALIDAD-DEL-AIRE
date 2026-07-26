@@ -1,67 +1,4 @@
-"""
-Script: extract_tangara_data.py
 
-Descripcion:
-    Extrae desde la instancia ClickHouse del ecosistema Tangara
-    (https://github.com/sebaxtian/clickhouse-tangara) las variables
-    Temperatura ("tmp"), Humedad ("hum"), ubicacion ("geo") y PM2.5
-    ("pm25") de la capa Plata (tangara_plata.plata_tangara_sensores),
-    y las aterriza como datos crudos en la capa Bronze de este
-    pipeline (PostgreSQL, esquema bronze).
-
-    Tangara no expone un API REST propio: el acceso se hace por
-    conexion directa a ClickHouse (cliente nativo clickhouse-connect
-    via HTTPS), tal como valida el repositorio de referencia.
-
-Variables de entorno requeridas (ver env.example):
-    CLICKHOUSE_HOST
-    CLICKHOUSE_PORT
-    CLICKHOUSE_USER
-    CLICKHOUSE_PASSWORD
-    CLICKHOUSE_DATABASE   (tangara_plata)
-    CLICKHOUSE_SECURE     (True/False)
-    CLICKHOUSE_TABLE      (plata_tangara_sensores)
-    TANGARA_SENSOR_NAMES  (lista de sensores separados por coma,
-                           ej: 2FF6,F1AE,1712,3O7A)
-    TANGARA_START_DATE    (opcional, fecha desde la que se trae el
-                           historico la PRIMERA vez que corre el
-                           pipeline (bronze todavia vacia), en hora
-                           Cali/Colombia, default
-                           2026-07-01 00:00:00)
-    DATABASE_URL          (opcional; Postgres destino. Si no se
-                           define, usa el Postgres local del
-                           docker-compose)
-
-Zona horaria:
-    ClickHouse devuelve la columna "time" en UTC (ej.
-    2026-07-26T04:15:05Z). Antes de guardar en bronze, esa columna
-    se convierte a hora de Cali/Colombia (America/Bogota, UTC-5) y
-    se guarda como datetime naive en esa zona horaria. La consulta
-    incremental contra ClickHouse (ver mas abajo) sigue
-    comparandose en UTC, ya que asi es como ClickHouse almacena el
-    dato; el timestamp guardado en bronze (en hora Cali) se
-    reconvierte a UTC unicamente para poder construir esa consulta.
-
-Logica de extraccion incremental:
-    En cada corrida se consulta el timestamp mas reciente ya
-    guardado en bronze.tangara_sensores_api_data (en hora Cali).
-    Si existe, se reconvierte a UTC y solo se trae de ClickHouse lo
-    que sea posterior a ese timestamp (sin volver a traer, ni
-    duplicar, lo que ya se cargo antes). Si bronze todavia esta
-    vacia (primera corrida), se trae desde TANGARA_START_DATE
-    (interpretada en hora Cali, igual que el resto del pipeline;
-    se reconvierte a UTC solo para consultar ClickHouse) hasta el
-    presente. TANGARA_START_DATE tambien actua como un PISO DURO:
-    nunca se trae de ClickHouse nada anterior a esa fecha (en hora
-    Cali), ni siquiera en corridas incrementales. Esto permite
-    correr el
-    pipeline con la frecuencia que sea (cada hora, una vez a la
-    semana, etc.) sin perder datos ni repetir trabajo: siempre
-    retoma desde donde se quedo la ultima vez.
-
-Ejecucion:
-    python extract_tangara_data.py
-"""
 
 import os
 
@@ -82,18 +19,11 @@ load_dotenv()
 
 RAW_FILE = "data/raw/tangara_sensores_api_data.csv"
 
-# ClickHouse guarda "time" en UTC. Este proyecto guarda y muestra
-# todo en hora de Cali/Colombia.
+#
 CALI_TZ = ZoneInfo("America/Bogota")
 
 
 def cali_to_utc(cali_naive_datetime):
-    """
-    Convierte un datetime naive que representa hora de Cali
-    (America/Bogota) -- tal como queda guardado en bronze -- de
-    vuelta a UTC naive, para poder usarlo en la consulta contra
-    ClickHouse (que almacena "time" en UTC).
-    """
 
     if cali_naive_datetime is None:
 
@@ -107,14 +37,6 @@ def cali_to_utc(cali_naive_datetime):
 
 
 def get_last_extracted_time():
-    """
-    Consulta el timestamp mas reciente ya guardado en
-    bronze.tangara_sensores_api_data (siempre en el Postgres
-    LOCAL, que es la fuente de verdad que el propio pipeline usa
-    para saber por donde va), para retomar la extraccion justo
-    desde ahi. Si la tabla/schema todavia no existe (primera
-    corrida del pipeline), devuelve None.
-    """
 
     engine = get_local_engine()
 

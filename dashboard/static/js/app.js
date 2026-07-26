@@ -26,13 +26,19 @@ function hasValidCoords(sensor) {
 // ESCALA DE CALIDAD DEL AIRE (basada en PM2.5, µg/m³)
 // =====================================================
 
+// Unico sensor con dashboard completo (modelo entrenado, mapa con
+// ubicacion en vivo, etc.) por ahora. Se usa para: seleccionarlo
+// por defecto, mostrarlo primero en la lista y deshabilitar los
+// demas sensores con un badge "Proximamente".
+const PRIMARY_SENSOR_ID = "2ff6";
+
 const AQI_LEVELS = [
-  { max: 12, label: "Bien", color: "#0e8f5f" },
-  { max: 35.4, label: "Moderado", color: "#e8c33e" },
-  { max: 55.4, label: "Nocivo para grupos sensibles", color: "#e08a3c" },
-  { max: 150.4, label: "Poco saludable", color: "#c0392b" },
-  { max: 250.4, label: "Muy poco saludable", color: "#7d3c98" },
-  { max: Infinity, label: "Peligroso", color: "#5c0a1a" },
+  { max: 12.9, label: "< 13 µg/m³", color: "#7cb342" },
+  { max: 34.9, label: "13 µg/m³+", color: "#f2c230" },
+  { max: 54.9, label: "35 µg/m³+", color: "#e8752c" },
+  { max: 149.9, label: "55 µg/m³+", color: "#d0392b" },
+  { max: 249.9, label: "150 µg/m³+", color: "#8e3fa3" },
+  { max: Infinity, label: "250 µg/m³+", color: "#5c0a1a" },
 ];
 
 function getAQICategory(pm25) {
@@ -121,7 +127,9 @@ function initDatasetView(panel) {
   const split = panel.dataset.split; // "train" | "test"
 
   const state = {
-    sensorId: Object.keys(SENSORS)[0] || null,
+    sensorId: SENSORS[PRIMARY_SENSOR_ID]
+      ? PRIMARY_SENSOR_ID
+      : Object.keys(SENSORS)[0] || null,
     map: null,
     sensorMarkers: {},
     charts: {},
@@ -145,24 +153,53 @@ function initDatasetView(panel) {
     loadData(panel, state, split);
   }
 
-  // --- Botones de sensor con nombre real ---
-  Object.entries(SENSORS).forEach(([sensorId, label]) => {
+  // --- Botones de sensor con nombre real. El sensor primario
+  // (2FF6) va primero y es el unico habilitado; los demas se
+  // muestran deshabilitados con un badge "Proximamente", ya que
+  // todavia no tienen modelo/dashboard propio. ---
+  const sensorEntries = Object.entries(SENSORS).sort(
+    ([a], [b]) => (a === PRIMARY_SENSOR_ID ? -1 : b === PRIMARY_SENSOR_ID ? 1 : 0)
+  );
+
+  sensorEntries.forEach(([sensorId, label]) => {
+    const isReady = sensorId === PRIMARY_SENSOR_ID;
+
     const btn = document.createElement("button");
-    btn.className = "sensor-btn" + (sensorId === state.sensorId ? " active" : "");
+    btn.className =
+      "sensor-btn" +
+      (sensorId === state.sensorId ? " active" : "") +
+      (isReady ? "" : " sensor-btn--soon");
     btn.textContent = label;
     btn.dataset.sensorId = sensorId;
 
-    btn.addEventListener("click", () => selectSensor(sensorId));
+    if (isReady) {
+      btn.addEventListener("click", () => selectSensor(sensorId));
+    } else {
+      btn.disabled = true;
+      btn.title = "Próximamente disponible";
+      const badge = document.createElement("span");
+      badge.className = "sensor-btn-badge";
+      badge.textContent = "Próximamente";
+      btn.appendChild(badge);
+    }
 
     sensorSelector.appendChild(btn);
   });
 
-  applyBtn.addEventListener("click", () => loadData(panel, state, split));
+  applyBtn.addEventListener("click", () => {
+    loadData(panel, state, split);
+    refreshSensorMarkers(
+      state,
+      startInput.value ? startInput.value.replace("T", " ") : null,
+      endInput.value ? endInput.value.replace("T", " ") : null
+    );
+  });
 
   clearBtn.addEventListener("click", () => {
     startInput.value = "";
     endInput.value = "";
     loadData(panel, state, split);
+    refreshSensorMarkers(state, null, null);
   });
 
   // --- Mapa base, con todos los sensores y escala de calidad del aire ---
@@ -203,6 +240,39 @@ function initDatasetView(panel) {
 // MARCADORES DE TODOS LOS SENSORES EN EL MAPA
 // =====================================================
 
+function formatFullDateES(date) {
+  return `${date.getDate()} de ${MESES_ES[date.getMonth()]}`;
+}
+
+function buildSensorPopup(sensor, category) {
+  const valueText =
+    sensor.last_pm25 !== null && sensor.last_pm25 !== undefined
+      ? `${Number(sensor.last_pm25).toFixed(1)} µg/m³`
+      : "N/D";
+
+  if (sensor.mode === "average" && sensor.range_start && sensor.range_end) {
+    const startDate = new Date(sensor.range_start);
+    const endDate = new Date(sensor.range_end);
+    const rangeText =
+      !Number.isNaN(startDate.getTime()) && !Number.isNaN(endDate.getTime())
+        ? `Del ${formatFullDateES(startDate)} al ${formatFullDateES(endDate)}, `
+        : "En el periodo seleccionado, ";
+
+    return (
+      `<strong>${sensor.label}</strong><br>` +
+      `${rangeText}la calidad del aire fue ` +
+      `<strong style="color:${category.color}">${category.label}</strong> ` +
+      `(promedio: ${valueText})`
+    );
+  }
+
+  return (
+    `<strong>${sensor.label}</strong><br>` +
+    `PM2.5: ${valueText} (${category.label})<br>` +
+    `${sensor.last_fecha ?? ""}`
+  );
+}
+
 async function loadSensorMarkers(state, panel, onSensorClick) {
   const statusLine = panel.querySelector(".status-line");
 
@@ -240,11 +310,7 @@ async function loadSensorMarkers(state, panel, onSensorClick) {
         fillOpacity: 0.9,
       }).addTo(state.map);
 
-      marker.bindPopup(
-        `<strong>${sensor.label}</strong><br>` +
-          `PM2.5: ${sensor.last_pm25 ?? "N/D"} µg/m³ (${category.label})<br>` +
-          `${sensor.last_fecha ?? ""}`
-      );
+      marker.bindPopup(buildSensorPopup(sensor, category));
 
       marker.on("click", () => onSensorClick(sensor.id));
 
@@ -282,6 +348,37 @@ async function loadSensorMarkers(state, panel, onSensorClick) {
       statusLine.textContent =
         "No se pudo cargar el mapa de sensores (revisa /api/sensors).";
     }
+  }
+}
+
+async function refreshSensorMarkers(state, start, end) {
+  const params = new URLSearchParams();
+  if (start) params.set("start", start);
+  if (end) params.set("end", end);
+
+  try {
+    const res = await fetch(`/api/sensors?${params.toString()}`);
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const sensors = await res.json();
+
+    sensors.forEach((sensor) => {
+      const marker = state.sensorMarkers[sensor.id];
+
+      if (!marker || !hasValidCoords(sensor)) {
+        return;
+      }
+
+      const category = getAQICategory(sensor.last_pm25);
+
+      marker.setStyle({ fillColor: category.color });
+      marker.setPopupContent(buildSensorPopup(sensor, category));
+    });
+  } catch (err) {
+    console.error("No se pudieron actualizar los sensores del mapa", err);
   }
 }
 
@@ -352,13 +449,7 @@ const MESES_ES = [
   "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
 ];
 
-/**
- * A partir de las fechas (strings) que llegan en `labels`, arma un
- * texto tipo "desde enero 2026 hasta julio 2026" (o "en julio 2026"
- * si el primer y el ultimo dato caen en el mismo mes/año) para usarlo
- * en los titulos de las graficas. Si no hay fechas validas, devuelve
- * una cadena vacia y el titulo simplemente no incluye el rango.
- */
+
 function formatDateRangeES(labels) {
   const validDates = labels
     .map((label) => new Date(label))
@@ -384,11 +475,7 @@ function formatDateRangeES(labels) {
   return `desde ${startText} hasta ${endText}`;
 }
 
-/**
- * Actualiza el texto del <h3> que precede a un canvas dentro de su
- * .chart-box, anteponiendo el titulo base al rango de fechas
- * calculado (si lo hay).
- */
+
 function setChartTitle(canvas, baseTitle, rangeText) {
   const heading = canvas.closest(".chart-box")?.querySelector("h3");
 
@@ -403,13 +490,6 @@ function setChartTitle(canvas, baseTitle, rangeText) {
 // TARJETA DE RESUMEN DE CALIDAD DEL AIRE (AQI)
 // =====================================================
 
-/**
- * Cuenta cuantos registros caen en cada categoria de AQI_LEVELS, y de
- * paso calcula el promedio de PM2.5 y el pico mas alto (con su
- * fecha), a partir de la lista de registros ya cargados (los mismos
- * que se usan para dibujar las graficas), respetando el sensor y el
- * filtro de fechas activos.
- */
 function buildAQISummary(records, pm25Field) {
   const counts = AQI_LEVELS.map(() => 0);
 
@@ -448,11 +528,36 @@ function buildAQISummary(records, pm25Field) {
   };
 }
 
+function formatSummaryTitleES(records, pm25Field) {
+  const validDates = records
+    .filter((r) => {
+      const raw = r[pm25Field];
+      return raw !== null && raw !== undefined && !Number.isNaN(Number(raw));
+    })
+    .map((r) => new Date(r.fecha))
+    .filter((d) => !Number.isNaN(d.getTime()))
+    .sort((a, b) => a - b);
+
+  if (validDates.length === 0) {
+    return "Calidad del aire — resumen del periodo";
+  }
+
+  const start = validDates[0];
+  const end = validDates[validDates.length - 1];
+
+  return `Calidad del aire — Resumen desde ${formatFullDateES(start)} hasta ${formatFullDateES(end)}`;
+}
+
 function resetAQISummary(panel) {
   const card = panel.querySelector(".aqi-summary-card");
 
   if (!card) {
     return;
+  }
+
+  if (panel.classList.contains("prediction-view")) {
+    card.querySelector(".aqi-summary-header h3").textContent =
+      "Calidad del aire — resumen del periodo";
   }
 
   card.querySelector(".aqi-summary-count").textContent = "";
@@ -473,6 +578,11 @@ function renderAQISummary(panel, records, pm25Field) {
   if (summary.total === 0) {
     resetAQISummary(panel);
     return;
+  }
+
+  if (panel.classList.contains("prediction-view")) {
+    card.querySelector(".aqi-summary-header h3").textContent =
+      formatSummaryTitleES(records, pm25Field);
   }
 
   const countEl = card.querySelector(".aqi-summary-count");
@@ -715,10 +825,11 @@ async function loadPredicciones(panel, state) {
       clearPrediccionesCharts(state);
       resetAQISummary(panel);
       resetForecastCard(panel);
+      resetAlertsTable(panel);
       return;
     }
 
-    statusLine.textContent = `${data.count} registros — ${data.sensor_label} (predicción)`;
+    statusLine.textContent = `${data.count} registros — ${data.sensor_label}`;
 
     renderPrediccionesCharts(panel, state, data);
   } catch (err) {
@@ -737,6 +848,7 @@ function renderPrediccionesCharts(panel, state, data) {
   clearPrediccionesCharts(state);
 
   renderAQISummary(panel, data.records, "pm25_real");
+  renderAlertsTable(panel, data.records, "pm25_real");
   renderForecastCard(panel, state, data.records);
 
   const labels = data.records.map((r) => r.fecha);
@@ -751,7 +863,7 @@ function renderPrediccionesCharts(panel, state, data) {
 
   const rangeText = formatDateRangeES(labels);
 
-  setChartTitle(pm25Canvas, "PM2.5 real vs. predicción (μg/m³)", rangeText);
+  setChartTitle(pm25Canvas, "PM2.5 (μg/m³) real vs. predicción PM2.5 (μg/m³)", rangeText);
   setChartTitle(tempCanvas, "Temperatura (°C)", rangeText);
   setChartTitle(humCanvas, "Humedad (%)", rangeText);
 
@@ -818,16 +930,7 @@ function renderPrediccionesCharts(panel, state, data) {
     options: chartOptions(),
   });
 }
-// =====================================================
-// TARJETA: PRONOSTICO PROXIMAS HORAS (registros de Gold con
-// pm25_real nulo, ya que esas horas todavia no han pasado)
-// =====================================================
 
-/**
- * Del listado completo de gold.sensor_2ff6_predicciones, se queda
- * solo con las filas "futuras" (pm25_real nulo pero pm25_predicho
- * ya calculado), ordenadas de la hora mas cercana a la mas lejana.
- */
 function getForecastRecords(records) {
   return records
     .filter((r) => {
@@ -845,13 +948,6 @@ function formatHourLabel(fecha) {
     return "";
   }
 
-  // Se lee la hora:minuto directamente del string que ya viene de
-  // Gold (columna "Fecha & Hora", en hora de Cali), sin pasar por
-  // new Date(...): usar Date() aqui reinterpreta/convierte la hora
-  // segun la zona horaria del navegador, y eso hace que se corra
-  // (ej. si el navegador no esta en America/Bogota). Al leer los
-  // digitos tal cual, se muestra exactamente la hora que guardo el
-  // pipeline, sin conversion de por medio.
   const match = String(fecha).match(/(\d{2}):(\d{2})(?::\d{2})?/);
 
   if (match) {
@@ -951,4 +1047,92 @@ function renderForecastCard(panel, state, records) {
       },
     },
   });
+}
+// =====================================================
+// TARJETA: REGISTROS FUERA DE LA CATEGORIA BUENA
+// =====================================================
+
+function formatFullDateTimeES(fecha) {
+  const date = new Date(fecha);
+
+  if (Number.isNaN(date.getTime())) {
+    return fecha ?? "N/D";
+  }
+
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+
+  return `${formatFullDateES(date)}, ${hh}:${mm}`;
+}
+
+function resetAlertsTable(panel) {
+  const card = panel.querySelector(".alerts-card");
+
+  if (!card) {
+    return;
+  }
+
+  card.querySelector(".alerts-count").textContent = "";
+  card.querySelector(".alerts-table tbody").innerHTML = "";
+  card.querySelector(".alerts-table").style.display = "none";
+  card.querySelector(".alerts-empty").hidden = false;
+}
+
+function renderAlertsTable(panel, records, pm25Field) {
+  const card = panel.querySelector(".alerts-card");
+
+  if (!card) {
+    return;
+  }
+
+  // "Fuera de la categoria buena" = supera el techo del primer
+  // nivel de AQI_LEVELS (el nivel "verde"/bueno), sin importar el
+  // nombre exacto que tenga esa categoria.
+  const goodCeiling = AQI_LEVELS[0].max;
+
+  const flagged = records
+    .filter((r) => {
+      const raw = r[pm25Field];
+
+      if (raw === null || raw === undefined) {
+        return false;
+      }
+
+      const value = Number(raw);
+
+      return !Number.isNaN(value) && value > goodCeiling;
+    })
+    .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+
+  if (flagged.length === 0) {
+    resetAlertsTable(panel);
+    return;
+  }
+
+  const table = card.querySelector(".alerts-table");
+  const tbody = card.querySelector(".alerts-table tbody");
+  const emptyEl = card.querySelector(".alerts-empty");
+  const countEl = card.querySelector(".alerts-count");
+
+  table.style.display = "";
+  emptyEl.hidden = true;
+  countEl.textContent = `${flagged.length} registro(s)`;
+
+  tbody.innerHTML = flagged
+    .map((r) => {
+      const value = Number(r[pm25Field]);
+      const category = getAQICategory(value);
+
+      return `
+        <tr>
+          <td>${formatFullDateTimeES(r.fecha)}</td>
+          <td>${value.toFixed(1)}</td>
+          <td>
+            <span class="aqi-swatch" style="background:${category.color}"></span>
+            ${category.label}
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
 }
