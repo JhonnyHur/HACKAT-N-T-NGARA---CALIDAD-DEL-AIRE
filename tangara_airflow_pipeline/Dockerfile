@@ -9,3 +9,15 @@ RUN apt-get update && \
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 
 USER airflow
+
+RUN pip install --no-cache-dir --user \
+    pandas \
+    numpy \
+    requests \
+    clickhouse-connect \
+    psycopg2-binary \
+    openpyxl \
+    pygeohash \
+    joblib \
+    xgboost \
+    scikit-learn

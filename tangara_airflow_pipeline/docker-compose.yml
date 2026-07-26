@@ -47,15 +47,16 @@ services:
       CLICKHOUSE_TABLE: ${CLICKHOUSE_TABLE:-plata_tangara_sensores}
 
       TANGARA_SENSOR_NAMES: ${TANGARA_SENSOR_NAMES:-2FF6,F1AE,1712,307A}
-      TANGARA_LOOKBACK_HOURS: ${TANGARA_LOOKBACK_HOURS:-24}
+      TANGARA_START_DATE: ${TANGARA_START_DATE:-2026-07-01 00:00:00}
 
-      _PIP_ADDITIONAL_REQUIREMENTS: >-
-        pandas
-        numpy
-        requests
-        clickhouse-connect
-        psycopg2-binary
-        openpyxl
+      # Postgres destino de los scripts (extract/transform/load).
+      # Si se deja vacio en el .env, cada script cae a su propio
+      # default (el Postgres local de este mismo docker-compose,
+      # servicio "postgres"). Para apuntar a un Postgres
+      # administrado (ej. Render), define esta variable en el .env
+      # con la External Database URL, agregando "+psycopg2" al
+      # esquema: postgresql+psycopg2://usuario:password@host/db
+      DATABASE_URL: ${DATABASE_URL:-}
 
     volumes:
       - ./dags:/opt/airflow/dags
@@ -63,6 +64,7 @@ services:
       - ./logs:/opt/airflow/logs
       - ./data:/opt/airflow/data
       - ./datos_train_test:/opt/airflow/datos_train_test
+      - ./models:/opt/airflow/models
 
     ports:
       - "8080:8080"
@@ -77,8 +79,7 @@ services:
       --lastname User
       --role Admin
       --email admin@example.com &&
-      airflow scheduler &
-      airflow webserver
+      (airflow scheduler & airflow webserver)
       "
 
   pgadmin:

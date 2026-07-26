@@ -47,6 +47,14 @@ engine = create_engine(DATABASE_URL)
 
 SCHEMA = "silver"
 
+# Capa Gold: tabla de predicciones del modelo XGBoost, solo
+# disponible por ahora para el sensor 2FF6 (unico con modelo
+# entrenado). La genera la tarea de Airflow
+# predict_and_load_gold_sensor_2ff6.
+GOLD_SCHEMA = "gold"
+GOLD_SENSOR_ID = "2ff6"
+GOLD_TABLE = "sensor_2ff6_predicciones"
+
 # codigo de tabla -> nombre real del sensor mostrado en el dashboard
 SENSORS = {
     "2ff6": "Sensor 2FF6",
@@ -61,7 +69,7 @@ def table_name(sensor_id, split):
     return f"sensor_{sensor_id}_{split}"
 
 
-def get_table_columns(conn, table):
+def get_table_columns(conn, table, schema=SCHEMA):
 
     result = conn.execute(
         text(
@@ -73,7 +81,7 @@ def get_table_columns(conn, table):
             ORDER BY ordinal_position
             """
         ),
-        {"schema": SCHEMA, "table": table}
+        {"schema": schema, "table": table}
     )
 
     return [row[0] for row in result]
@@ -134,6 +142,37 @@ def normalize_rows(rows, columns, has_prediction):
             )
 
         normalized.append(item)
+
+    return normalized
+
+
+def normalize_prediction_rows(rows, columns):
+    """
+    Normaliza filas de gold.sensor_2ff6_predicciones (Fecha & Hora,
+    Temperatura, Humedad, PM2.5_Real, PM2.5_Predicho), detectando
+    columnas por palabra clave igual que normalize_rows, para no
+    depender de que el nombre exacto no cambie nunca.
+    """
+
+    date_col = find_column(columns, "fecha")
+    temp_col = find_column(columns, "temperatura")
+    hum_col = find_column(columns, "humedad")
+    real_col = find_column(columns, "real")
+    pred_col = find_column(columns, "predicho")
+
+    normalized = []
+
+    for row in rows:
+
+        row_dict = dict(zip(columns, row))
+
+        normalized.append({
+            "fecha": row_dict.get(date_col) if date_col else None,
+            "temperatura": row_dict.get(temp_col) if temp_col else None,
+            "humedad": row_dict.get(hum_col) if hum_col else None,
+            "pm25_real": row_dict.get(real_col) if real_col else None,
+            "pm25_predicho": row_dict.get(pred_col) if pred_col else None,
+        })
 
     return normalized
 
@@ -315,18 +354,114 @@ def api_data(sensor_id, split):
 @app.route("/api/predicciones")
 def api_predicciones():
     """
-    Placeholder de la seccion Predicciones. Todavia no hay modelo
-    de Machine Learning conectado; se deja la ruta lista para
-    cuando se integre.
+    Predicciones de PM2.5 para el sensor 2FF6 (unico sensor con
+    modelo de Machine Learning entrenado por ahora), leidas de
+    gold.sensor_2ff6_predicciones. Esa tabla la genera la tarea de
+    Airflow predict_and_load_gold_sensor_2ff6, y puede no existir
+    todavia (por ejemplo, si el DAG nunca ha corrido, o si el
+    sensor aun no acumula las 24 horas de historico que necesita
+    el modelo) — en ese caso se devuelve una respuesta vacia en vez
+    de un error.
     """
 
+    start_date = request.args.get("start")
+    end_date = request.args.get("end")
+
+    with engine.connect() as conn:
+
+        try:
+
+            columns = get_table_columns(
+                conn, GOLD_TABLE, schema=GOLD_SCHEMA
+            )
+
+        except Exception as error:
+
+            print(
+                f"[AVISO] No se pudo leer '{GOLD_SCHEMA}.{GOLD_TABLE}': "
+                f"{error}"
+            )
+
+            columns = []
+
+        if not columns:
+
+            return jsonify({
+                "status": "empty",
+                "message": (
+                    "Todavía no hay predicciones disponibles para "
+                    "el sensor 2FF6. El modelo necesita al menos "
+                    "24 horas de histórico antes de generar la "
+                    "primera predicción."
+                ),
+                "records": [],
+            })
+
+        date_col = find_column(columns, "fecha")
+
+        where_clauses = []
+        params = {}
+
+        if date_col and start_date:
+
+            where_clauses.append(f'"{date_col}" >= :start_date')
+            params["start_date"] = start_date
+
+        if date_col and end_date:
+
+            where_clauses.append(f'"{date_col}" <= :end_date')
+            params["end_date"] = end_date
+
+        where_sql = ""
+
+        if where_clauses:
+
+            where_sql = "WHERE " + " AND ".join(where_clauses)
+
+        order_sql = f'ORDER BY "{date_col}" ASC' if date_col else ""
+
+        try:
+
+            rows = conn.execute(
+                text(
+                    f'SELECT * FROM {GOLD_SCHEMA}."{GOLD_TABLE}" '
+                    f'{where_sql} {order_sql}'
+                ),
+                params
+            ).fetchall()
+
+        except Exception as error:
+
+            print(
+                f"[AVISO] Error consultando "
+                f"'{GOLD_SCHEMA}.{GOLD_TABLE}': {error}"
+            )
+
+            return jsonify({
+                "status": "empty",
+                "message": "Error consultando las predicciones.",
+                "records": [],
+            })
+
+    records = normalize_prediction_rows(rows, columns)
+
+    if not records:
+
+        return jsonify({
+            "status": "empty",
+            "message": (
+                "No hay predicciones para el rango de fechas "
+                "seleccionado."
+            ),
+            "records": [],
+        })
+
     return jsonify({
-        "status": "empty",
-        "message": (
-            "La sección de Predicciones aún no tiene un modelo "
-            "conectado."
-        ),
-        "records": [],
+        "status": "ok",
+        "sensor_id": GOLD_SENSOR_ID,
+        "sensor_label": SENSORS[GOLD_SENSOR_ID],
+        "count": len(records),
+        "records": records,
     })
 
 

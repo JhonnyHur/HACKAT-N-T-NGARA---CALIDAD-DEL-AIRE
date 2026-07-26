@@ -23,6 +23,10 @@ Descripcion:
         silver.sensor_1712_train   silver.sensor_1712_test
         silver.sensor_307a_train   silver.sensor_307a_test
 
+Variables de entorno:
+    DATABASE_URL (opcional; Postgres destino. Si no se define, usa
+    el Postgres local del docker-compose)
+
 Ejecucion:
     python load_train_test_csv_data.py
 """
@@ -35,6 +39,14 @@ from sqlalchemy import create_engine, text
 
 
 DATA_DIR = "/opt/airflow/datos_train_test"
+
+# Postgres destino: por defecto el del docker-compose local
+# (servicio "postgres"). Se puede sobreescribir con DATABASE_URL
+# en el .env para apuntar, por ejemplo, a un Postgres administrado
+# en Render.
+DATABASE_URL = os.environ.get("DATABASE_URL") or (
+    "postgresql+psycopg2://ai_admin:ai_admin@postgres:5432/ai_project"
+)
 
 SENSOR_CODES = [
     "2FF6",
@@ -53,9 +65,7 @@ def load_train_test_data():
 
     print("=== INICIANDO CARGA DE DATASETS TRAIN/TEST A SILVER ===")
 
-    engine = create_engine(
-        "postgresql+psycopg2://ai_admin:ai_admin@postgres:5432/ai_project"
-    )
+    engine = create_engine(DATABASE_URL)
 
     with engine.begin() as conn:
 
