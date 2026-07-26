@@ -41,7 +41,7 @@ Dashboard interactivo para visualizar variables ambientales, consultar informaci
 
 ### tangara_airflow_pipeline/
 
-Pipeline ETL End-to-End, orquestado con Apache Airflow y contenedorizado con Docker, encargado del procesamiento de los datos de la Red de Sensores Tángara.
+Pipeline ETL End-to-End, orquestado con Apache Airflow y contenedorizado con Docker, encargado del procesamiento de los datos en tiempo real de la Red de Sensores Tángara.
 
 ### HACKATÓN_TÁNGARA_CALIDAD_DEL_AIRE_SENSOR_2FF6.ipynb
 
