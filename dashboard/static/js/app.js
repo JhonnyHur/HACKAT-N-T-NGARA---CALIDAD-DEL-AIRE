@@ -714,6 +714,7 @@ async function loadPredicciones(panel, state) {
         data.message || "No hay predicciones disponibles.";
       clearPrediccionesCharts(state);
       resetAQISummary(panel);
+      resetForecastCard(panel);
       return;
     }
 
@@ -736,6 +737,7 @@ function renderPrediccionesCharts(panel, state, data) {
   clearPrediccionesCharts(state);
 
   renderAQISummary(panel, data.records, "pm25_real");
+  renderForecastCard(panel, state, data.records);
 
   const labels = data.records.map((r) => r.fecha);
   const pm25Real = data.records.map((r) => r.pm25_real ?? null);
@@ -814,5 +816,131 @@ function renderPrediccionesCharts(panel, state, data) {
       ],
     },
     options: chartOptions(),
+  });
+}
+// =====================================================
+// TARJETA: PRONOSTICO PROXIMAS HORAS (registros de Gold con
+// pm25_real nulo, ya que esas horas todavia no han pasado)
+// =====================================================
+
+/**
+ * Del listado completo de gold.sensor_2ff6_predicciones, se queda
+ * solo con las filas "futuras" (pm25_real nulo pero pm25_predicho
+ * ya calculado), ordenadas de la hora mas cercana a la mas lejana.
+ */
+function getForecastRecords(records) {
+  return records
+    .filter((r) => {
+      const isFuture = r.pm25_real === null || r.pm25_real === undefined;
+      const hasPrediction =
+        r.pm25_predicho !== null && r.pm25_predicho !== undefined;
+
+      return isFuture && hasPrediction;
+    })
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+}
+
+function formatHourLabel(fecha) {
+  const date = new Date(fecha);
+
+  if (Number.isNaN(date.getTime())) {
+    return fecha ?? "";
+  }
+
+  return date.toLocaleTimeString("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function resetForecastCard(panel) {
+  const card = panel.querySelector(".forecast-card");
+
+  if (!card) {
+    return;
+  }
+
+  card.querySelector(".forecast-updated").textContent = "";
+  card.querySelector(".forecast-chips").innerHTML = "";
+  card.querySelector(".forecast-chart-box").style.display = "none";
+  card.querySelector(".forecast-empty").hidden = false;
+}
+
+function renderForecastCard(panel, state, records) {
+  const card = panel.querySelector(".forecast-card");
+
+  if (!card) {
+    return;
+  }
+
+  const chipsEl = card.querySelector(".forecast-chips");
+  const updatedEl = card.querySelector(".forecast-updated");
+  const emptyEl = card.querySelector(".forecast-empty");
+  const chartBox = card.querySelector(".forecast-chart-box");
+  const canvas = card.querySelector(".chart-forecast");
+
+  const forecastRecords = getForecastRecords(records);
+
+  if (forecastRecords.length === 0) {
+    resetForecastCard(panel);
+    return;
+  }
+
+  emptyEl.hidden = true;
+  chartBox.style.display = "";
+
+  updatedEl.textContent =
+    `Próximas ${forecastRecords.length} horas, a partir del último dato real`;
+
+  chipsEl.innerHTML = forecastRecords
+    .map((record, i) => {
+      const value = Number(record.pm25_predicho);
+      const level = getAQICategory(value);
+      const valueText = Number.isFinite(value) ? value.toFixed(1) : "N/D";
+
+      return `
+        <div class="forecast-chip" style="border-top-color:${level.color}">
+          <span class="forecast-chip-hour">
+            +${i + 1}h · ${formatHourLabel(record.fecha)}
+          </span>
+          <span class="forecast-chip-value">
+            ${valueText}<span class="forecast-chip-unit"> µg/m³</span>
+          </span>
+          <span class="forecast-chip-label" style="color:${level.color}">
+            ${level.label}
+          </span>
+        </div>
+      `;
+    })
+    .join("");
+
+  const labels = forecastRecords.map(
+    (record, i) => `+${i + 1}h (${formatHourLabel(record.fecha)})`
+  );
+  const values = forecastRecords.map((record) => Number(record.pm25_predicho));
+  const colors = forecastRecords.map(
+    (record) => getAQICategory(Number(record.pm25_predicho)).color
+  );
+
+  state.charts.forecast = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "PM2.5 pronosticado (µg/m³)",
+          data: values,
+          backgroundColor: colors,
+          borderRadius: 4,
+          maxBarThickness: 40,
+        },
+      ],
+    },
+    options: {
+      ...chartOptions(),
+      plugins: {
+        legend: { display: false },
+      },
+    },
   });
 }

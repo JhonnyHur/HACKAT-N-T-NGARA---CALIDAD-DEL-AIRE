@@ -365,3 +365,109 @@ main {
   border-radius: 3px;
   flex-shrink: 0;
 }
+
+/* =====================================================
+   TARJETA: PRONOSTICO PROXIMAS HORAS
+   ===================================================== */
+
+.forecast-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 20px;
+}
+
+.forecast-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.forecast-header h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.forecast-updated {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.forecast-body {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 24px;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .forecast-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.forecast-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.forecast-chip {
+  flex: 1 1 90px;
+  min-width: 90px;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--border);
+  text-align: center;
+}
+
+.forecast-chip-hour {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+
+.forecast-chip-value {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.forecast-chip-unit {
+  font-size: 0.68rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.forecast-chip-label {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.forecast-chart-box {
+  min-height: 160px;
+}
+
+.forecast-chart-box canvas {
+  max-height: 180px;
+  height: 180px !important;
+}
+
+.forecast-empty {
+  margin: 4px 0 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
