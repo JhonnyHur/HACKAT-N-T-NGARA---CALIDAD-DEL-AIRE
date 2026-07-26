@@ -1,21 +1,22 @@
-# PM2.5 Prediction Using Artificial Intelligence and Data Engineering
+# Predicción de PM2.5 mediante Modelo de Machine Learning
 
-End-to-end Data Engineering and Artificial Intelligence project developed for the **Hackathon Tángara 2026**.
+Proyecto desarrollado para la **Hackatón Tángara 2026**, que integra un pipeline de Ingeniería de Datos y un modelo de Inteligencia Artificial para la estimación de concentraciones de **PM2.5** en el oriente de Santiago de Cali.
 
-The project integrates a complete environmental data pipeline with Machine Learning to estimate **PM2.5 concentrations** in eastern Santiago de Cali, Colombia. The solution combines historical air quality records (2014–2019) with real-time environmental information collected by the Tangara sensor network, automatically processing the data through an Apache Airflow pipeline and generating predictions using an **XGBoost** regression model.
+La solución combina registros históricos de calidad del aire recopilados entre **2014 y 2019** en la Estación de Monitoreo Compartir con datos ambientales obtenidos en tiempo real a través de la **Red de Sensores Tángara**. Estos datos son procesados automáticamente mediante un pipeline implementado con **Apache Airflow**, almacenados en **PostgreSQL** bajo una arquitectura Medallón (Bronze y Silver) y utilizados por un modelo de **Machine Learning (XGBoost)** para generar predicciones de PM2.5.
 
-The processed information is stored in PostgreSQL following a Medallion Architecture (Bronze and Silver) and is exposed through an interactive dashboard for monitoring environmental conditions and PM2.5 predictions. :contentReference[oaicite:1]{index=1}
+Finalmente, los resultados son presentados mediante un **dashboard interactivo**, permitiendo visualizar las variables ambientales, consultar información histórica y monitorear las predicciones generadas por el modelo.
 
 ---
 
-# Project Team
+# Equipo de Desarrollo
 
-| Member | Institution | Email |
-|---------|-------------|-------|
+| Integrante | Universidad | Correo electrónico |
+|------------|-------------|--------------------|
 | Bryan Fernando Burbano Carvajal | Universidad Autónoma de Occidente | bryanburbanocarvajal24@gmail.com |
-| Jhonny Silvano Hurtado Sinisterra | *(Agregar universidad)* | *(Agregar correo)* |
-| Germán Andrés Calberto Sánchez | *(Agregar universidad)* | *(Agregar correo)* |
-| Graciela Sánchez Ibarra | *(Agregar universidad)* | *(Agregar correo)* |
+| Jhonny Silvano Hurtado Sinisterra | *Pendiente* | *Pendiente* |
+| Germán Andrés Calberto Sánchez | *Pendiente* | *Pendiente* |
+| Graciela Sánchez Ibarra | *Pendiente* | *Pendiente* |
+
 
 ---
 
