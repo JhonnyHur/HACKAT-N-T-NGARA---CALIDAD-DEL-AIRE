@@ -1,11 +1,10 @@
 # Predicción de PM2.5 mediante Modelo de Machine Learning
 
-Proyecto desarrollado para la **Hackatón Tángara 2026**, que integra un pipeline de Ingeniería de Datos y un modelo de Inteligencia Artificial para la estimación de concentraciones de **PM2.5** en el suroccidente de Santiago de Cali.
+Proyecto desarrollado para la Hackatón Tángara 2026, que integra un pipeline ETL End-to-End de Ingeniería de Datos e Inteligencia Artificial para la estimación y el pronóstico de concentraciones de PM2.5 en diferentes ubicaciones de la ciudad de Santiago de Cali.
 
-La solución combina registros históricos de calidad del aire recopilados entre **2023 y 2026** datos ambientales obtenidos en tiempo real a través de la **Red de Sensores Tángara**. Estos datos son procesados automáticamente mediante un pipeline implementado End to End con **Apache Airflow**, almacenados en **PostgreSQL** bajo una arquitectura Medallón (Bronze, Silver y Gold) y utilizados por un modelo de **Machine Learning (XGBoost)** para generar predicciones de PM2.5.
+La solución emplea un dataset histórico, obtenido a través de la Red de Sensores Tángara y correspondiente al período comprendido entre enero de 2023 y junio de 2026, para el entrenamiento y la evaluación de un modelo de Machine Learning (XGBoost). Posteriormente, utiliza datos ambientales en tiempo real, provenientes de la misma Red de Sensores Tángara, para generar predicciones de PM2.5 y pronosticar su comportamiento durante las siguientes seis horas.
 
-Finalmente, los resultados son presentados mediante un **dashboard interactivo**, permitiendo visualizar las variables ambientales (Temperatura, Humedad), consultar información histórica y monitorear las predicciones generadas por el modelo.
-
+Todo el proceso es gestionado mediante un pipeline ETL End-to-End, orquestado con Apache Airflow y contenedorizado con Docker, que extrae, transforma y almacena la información en PostgreSQL siguiendo una arquitectura Medallón (Bronze, Silver y Gold). Finalmente, las predicciones se presentan a través de un dashboard interactivo, permitiendo visualizar las variables ambientales (temperatura y humedad), consultar información histórica y monitorear la calidad del aire.
 ---
 
 # Equipo de Desarrollo
