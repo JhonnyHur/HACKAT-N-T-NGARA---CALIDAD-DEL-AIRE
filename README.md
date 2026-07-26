@@ -5,7 +5,10 @@ Proyecto desarrollado para la Hackatón Tángara 2026, que integra un pipeline E
 La solución emplea un dataset histórico, obtenido a través de la Red de Sensores Tángara y correspondiente al período comprendido entre enero de 2023 y junio de 2026, para el entrenamiento y la evaluación de un modelo de Machine Learning (XGBoost). Posteriormente, utiliza datos ambientales en tiempo real, provenientes de la misma Red de Sensores Tángara, para generar predicciones de PM2.5 y pronosticar su comportamiento durante las siguientes seis horas.
 
 Todo el proceso es gestionado mediante un pipeline ETL End-to-End, orquestado con Apache Airflow y contenedorizado con Docker, que extrae, transforma y almacena la información en PostgreSQL siguiendo una arquitectura Medallón (Bronze, Silver y Gold). Finalmente, las predicciones se presentan a través de un dashboard interactivo, permitiendo visualizar las variables ambientales (temperatura y humedad), consultar información histórica y monitorear la calidad del aire.
+
+
 ---
+
 
 # Equipo de Desarrollo
 
