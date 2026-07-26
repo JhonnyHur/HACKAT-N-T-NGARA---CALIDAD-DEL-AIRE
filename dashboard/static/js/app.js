@@ -837,20 +837,28 @@ function getForecastRecords(records) {
 
       return isFuture && hasPrediction;
     })
-    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
 }
 
 function formatHourLabel(fecha) {
-  const date = new Date(fecha);
-
-  if (Number.isNaN(date.getTime())) {
-    return fecha ?? "";
+  if (!fecha) {
+    return "";
   }
 
-  return date.toLocaleTimeString("es-CO", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  // Se lee la hora:minuto directamente del string que ya viene de
+  // Gold (columna "Fecha & Hora", en hora de Cali), sin pasar por
+  // new Date(...): usar Date() aqui reinterpreta/convierte la hora
+  // segun la zona horaria del navegador, y eso hace que se corra
+  // (ej. si el navegador no esta en America/Bogota). Al leer los
+  // digitos tal cual, se muestra exactamente la hora que guardo el
+  // pipeline, sin conversion de por medio.
+  const match = String(fecha).match(/(\d{2}):(\d{2})(?::\d{2})?/);
+
+  if (match) {
+    return `${match[1]}:${match[2]}`;
+  }
+
+  return String(fecha);
 }
 
 function resetForecastCard(panel) {
