@@ -90,6 +90,29 @@ Para el desarrollo del proyecto se utilizaron los siguientes sensores:
 
 
 ```
+# Requisitos Previos
+
+Antes de ejecutar el proyecto, asegúrate de contar con lo siguiente:
+
+- Docker Desktop (o Docker + Docker Compose) instalado y en ejecución.
+- Credenciales de acceso a ClickHouse de la Red de Sensores Tángara (`CLICKHOUSE_USER` y `CLICKHOUSE_PASSWORD`).
+
+Crear el archivo de variables de entorno:
+
+```bash
+cp env.example .env
+```
+
+Abre el archivo `.env` y completa las siguientes variables:
+
+```text
+CLICKHOUSE_USER=tu_usuario
+CLICKHOUSE_PASSWORD=tu_password
+```
+
+> El resto de variables ya se encuentran configuradas por defecto en `env.example`.
+
+---
 
 
 
