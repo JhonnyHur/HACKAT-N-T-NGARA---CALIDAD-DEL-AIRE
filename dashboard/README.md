@@ -1,86 +1,94 @@
 # Predicción de PM2.5 Hackatón Tangara
 
 Dashboard Flask que muestra los datos de los sensores de la red
-Tangara (2FF6, F1AE, 1712, 307A), con mapa de ubicación, gráficas de
+Tangara (2FF6), con mapa de ubicación, gráficas de
 PM2.5/Temperatura/Humedad, filtros por rango de fechas y 3 secciones:
 **Predicciones**, **Train** y **Test**.
 
-> Cambio importante: este dashboard ya **no usa MongoDB Atlas**.
-> Ahora se conecta directamente a **PostgreSQL** — la misma base que
-> llena el pipeline `tangara-airflow-pipeline`, leyendo las tablas
-> `silver.sensor_<codigo>_train` y `silver.sensor_<codigo>_test`
-> que ese pipeline genera a partir de los CSV de `datos_train_test/`.
-
-## Secciones
-
-- **Predicciones**: por ahora vacía — queda lista para conectar el
-  modelo de Machine Learning más adelante (`/api/predicciones`).
-- **Train**: datos reales medidos por sensor (sin predicción).
-- **Test**: datos reales + la predicción del modelo, cuando el CSV
-  cargado la trae (columna que empiece con `Pred_`).
-
-## Estructura
 
 ```
-app.py                  Backend Flask (Postgres) — expone /api/sensors,
-                         /api/data/<sensor>/<split> y /api/predicciones
-templates/index.html    Vista principal (3 pestañas)
-static/css/style.css    Estilos
-static/js/app.js        Tabs, filtros de fecha, mapa Leaflet, gráficas Chart.js
-requirements.txt
-Procfile                Comando de arranque para Render (gunicorn)
-env.example
+dashboard/
+├── static/
+│   ├── css/
+│   │   └── style.css        Estilos
+│   └── js/
+│       └── app.js           Tabs, filtros de fecha, mapa Leaflet, gráficas Chart.js
+├── templates/
+│   └── index.html           Vista principal (3 pestañas)
+├── .env
+├── app.py                   Backend Flask (Postgres) — expone /api/sensors,
+│                             /api/data/<sensor>/<split> y /api/predicciones
+├── env.example
+├── Procfile                 Comando de arranque para Render (gunicorn)
+├── README.md
+└── requirements.txt
 ```
 
-## Requisito: que existan las tablas en Postgres
+## Variable de entorno: DATABASE_URL
 
-Este dashboard **no carga datos por sí mismo** — lee lo que ya dejó
-el pipeline de Airflow en Silver. Antes de correr el dashboard,
-asegúrate de que el DAG `tangara_pipeline` (proyecto
-`tangara-airflow-pipeline`) ya corrió al menos una vez la tarea
-`load_train_test_csv_to_silver`, y de que existan estas tablas:
+Todo el comportamiento del dashboard depende de una sola variable:
 
 ```
-silver.sensor_2ff6_train   silver.sensor_2ff6_test
-silver.sensor_f1ae_train   silver.sensor_f1ae_test
-silver.sensor_1712_train   silver.sensor_1712_test
-silver.sensor_307a_train   silver.sensor_307a_test
+DATABASE_URL=postgresql+psycopg2://usuario:password@host:puerto/nombre_bd
 ```
 
-Puedes verificarlo entrando a `http://localhost:5000/api/_debug/tables`
-una vez el dashboard esté corriendo.
+Si no defines `DATABASE_URL`, el dashboard usa por defecto
+`postgresql+psycopg2://ai_admin:ai_admin@localhost:5432/ai_project`
+(las credenciales por defecto del Postgres local del pipeline), así
+que en local muchas veces no necesitas configurar nada si ya tienes
+ese Postgres corriendo.
+
+Tienes dos opciones para esta variable, según a qué Postgres quieras
+apuntar:
+
+### Opción A — Postgres LOCAL
+
+Esta opción sirve si estás corriendo el pipeline de Airflow en tu
+máquina.
+
+1. Verifica en el `.env` del pipeline (o en su `docker-compose.yml`)
+   cuáles son `POSTGRES_USER`, `POSTGRES_PASSWORD` y `POSTGRES_DB`.
+   Por defecto son `ai_admin` / `ai_admin` / `ai_project`.
+2. Como el Postgres del pipeline expone el puerto 5432 al host
+   (`"5432:5432"` en su `docker-compose.yml`), desde tu máquina se ve
+   como si corriera en `localhost`. Tu `DATABASE_URL` queda:
+
+   ```
+   DATABASE_URL=postgresql+psycopg2://ai_admin:ai_admin@localhost:5432/ai_project
+   ```
+
+   Nota: si de igual forma dejas `DATABASE_URL` vacía, el dashboard
+   debería apuntar al Postgres local de igual manera (es el default). 
+   Esto si estas corriendo y usando el flujo de airflow de tangara_airflow_pipeline
+
+### Opción B — Postgres en RENDER
+
+En este caso, usa la siguiente URL para conectarte al Postgres que ya
+tenemos en Render:
+
+```
+DATABASE_URL=postgresql+psycopg2://admin:bluS2CCW9ux17mwR6f7x92mjacn8JKER@dpg-d9is09vavr4c73bcokm0-a.ohio-postgres.render.com/ai_project_4i6q
+```
 
 ## Correr en local
 
 1. Copia las variables de entorno:
 
-```bash
-cp env.example .env
-```
+   ```bash
+   cp env.example .env
+   ```
 
-2. Ajusta `DATABASE_URL` en `.env` según dónde esté corriendo tu
-   Postgres:
-   - Si corres el dashboard **fuera** de Docker y el Postgres del
-     pipeline expone el puerto 5432 en tu máquina (como ya lo hace
-     `docker-compose.yml` del pipeline con `"5432:5432"`), usa
-     `localhost`:
-     ```text
-     DATABASE_URL=postgresql+psycopg2://ai_admin:ai_admin@localhost:5432/ai_project
-     ```
-   - Si en cambio corres este dashboard **dentro** de la misma red
-     de Docker que el pipeline, usa el nombre del servicio:
-     ```text
-     DATABASE_URL=postgresql+psycopg2://ai_admin:ai_admin@postgres:5432/ai_project
-     ```
+2. Abre `.env` y pega ahí tu `DATABASE_URL`, según la Opción A o B de
+   arriba (o déjala vacía para usar el default del Postgres local).
 
 3. Instala dependencias y corre:
 
-```bash
-pip install -r requirements.txt
-python app.py
-```
+   ```bash
+   pip install -r requirements.txt
+   python app.py
+   ```
 
-Abre http://localhost:5000
+4. Abre <http://localhost:5000>.
 
 ## Desplegar en Render
 
@@ -88,26 +96,11 @@ Abre http://localhost:5000
 2. En Render: **New > Web Service**, conecta el repo.
 3. Build command: `pip install -r requirements.txt`
 4. Start command: `gunicorn app:app` (ya está en el Procfile).
-5. En **Environment**, agrega la variable `DATABASE_URL` apuntando a
-   tu Postgres (necesitas que ese Postgres sea accesible desde
-   internet — si hoy solo corre en tu Docker local, tendrás que
-   exponerlo con un servicio de Postgres administrado, o usar un
-   túnel, antes de desplegar aquí).
+5. En **Environment**, agrega la variable `DATABASE_URL` apuntando al
+   Postgres que ya está en Render (Opción B de arriba):
+
+   ```
+   postgresql+psycopg2://admin:bluS2CCW9ux17mwR6f7x92mjacn8JKER@dpg-d9is09vavr4c73bcokm0-a.ohio-postgres.render.com/ai_project_4i6q
+   ```
+
 6. Deploy. Render te da una URL tipo `tu-app.onrender.com`.
-
-## Filtros de tiempo
-
-Cada pestaña (Train / Test) tiene selectores de fecha "Desde" /
-"Hasta". Al aplicar el filtro, la consulta a Postgres se limita a
-ese rango (`WHERE "Fecha y Hora" >= ... AND <= ...`), sin traer todo
-el histórico cada vez.
-
-## Notas sobre las columnas
-
-El backend no asume nombres de columna fijos: detecta automáticamente
-cuál es la columna de fecha, PM2.5 real, PM2.5 predicho, temperatura,
-humedad, latitud y longitud buscando palabras clave en el nombre de
-cada columna (ej. cualquier columna que contenga "fecha", cualquiera
-que contenga "pm2" y no empiece por "pred", etc.). Esto evita que el
-dashboard se rompa si el nombre exacto de una columna varía
-ligeramente entre los CSV de los distintos sensores.
