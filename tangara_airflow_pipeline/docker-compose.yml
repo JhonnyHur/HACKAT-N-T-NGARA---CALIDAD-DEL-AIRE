@@ -58,6 +58,14 @@ services:
       # esquema: postgresql+psycopg2://usuario:password@host/db
       DATABASE_URL: ${DATABASE_URL:-}
 
+      # Segundo Postgres (opcional) al que el pipeline TAMBIEN
+      # escribe, ademas del local: la External Database URL de un
+      # Postgres administrado en Render. Si se deja vacio en el
+      # .env, el pipeline escribe SOLO en el Postgres local, igual
+      # que antes. Recuerda agregar "+psycopg2" al esquema:
+      # postgresql+psycopg2://usuario:password@host/db
+      DATABASE_URL_RENDER: ${DATABASE_URL_RENDER:-}
+
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src

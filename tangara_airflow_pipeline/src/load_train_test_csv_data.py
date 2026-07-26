@@ -35,18 +35,12 @@ import os
 
 import pandas as pd
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
+
+from db_engines import get_engines
 
 
 DATA_DIR = "/opt/airflow/datos_train_test"
-
-# Postgres destino: por defecto el del docker-compose local
-# (servicio "postgres"). Se puede sobreescribir con DATABASE_URL
-# en el .env para apuntar, por ejemplo, a un Postgres administrado
-# en Render.
-DATABASE_URL = os.environ.get("DATABASE_URL") or (
-    "postgresql+psycopg2://ai_admin:ai_admin@postgres:5432/ai_project"
-)
 
 SENSOR_CODES = [
     "2FF6",
@@ -65,52 +59,55 @@ def load_train_test_data():
 
     print("=== INICIANDO CARGA DE DATASETS TRAIN/TEST A SILVER ===")
 
-    engine = create_engine(DATABASE_URL)
-
-    with engine.begin() as conn:
-
-        conn.execute(
-            text(
-                """
-                CREATE SCHEMA IF NOT EXISTS silver
-                """
-            )
-        )
-
     loaded_files = 0
     missing_files = 0
 
-    for sensor_code in SENSOR_CODES:
+    for label, engine in get_engines():
 
-        for split in SPLITS:
+        with engine.begin() as conn:
 
-            file_name = f"Sensor {sensor_code} {split}.csv"
-            file_path = os.path.join(DATA_DIR, file_name)
-
-            if not os.path.exists(file_path):
-
-                print(f"[AVISO] No encontrado: {file_path}")
-                missing_files += 1
-                continue
-
-            df = pd.read_csv(file_path)
-
-            table_name = f"sensor_{sensor_code.lower()}_{split.lower()}"
-
-            df.to_sql(
-                name=table_name,
-                schema="silver",
-                con=engine,
-                if_exists="replace",
-                index=False
+            conn.execute(
+                text(
+                    """
+                    CREATE SCHEMA IF NOT EXISTS silver
+                    """
+                )
             )
 
-            print(
-                f"Tabla silver.{table_name}: "
-                f"{len(df)} registros cargados desde '{file_name}'"
-            )
+        for sensor_code in SENSOR_CODES:
 
-            loaded_files += 1
+            for split in SPLITS:
+
+                file_name = f"Sensor {sensor_code} {split}.csv"
+                file_path = os.path.join(DATA_DIR, file_name)
+
+                if not os.path.exists(file_path):
+
+                    print(f"[AVISO] No encontrado: {file_path}")
+                    missing_files += 1
+                    continue
+
+                df = pd.read_csv(file_path)
+
+                table_name = (
+                    f"sensor_{sensor_code.lower()}_{split.lower()}"
+                )
+
+                df.to_sql(
+                    name=table_name,
+                    schema="silver",
+                    con=engine,
+                    if_exists="replace",
+                    index=False
+                )
+
+                print(
+                    f"[{label}] Tabla silver.{table_name}: "
+                    f"{len(df)} registros cargados desde "
+                    f"'{file_name}'"
+                )
+
+                loaded_files += 1
 
     print("=== CARGA DE DATASETS TRAIN/TEST COMPLETADA ===")
     print(f"Archivos cargados: {loaded_files}")

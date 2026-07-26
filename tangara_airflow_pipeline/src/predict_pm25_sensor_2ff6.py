@@ -1,15 +1,10 @@
-
-import os
-
 import joblib
 import pandas as pd
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
+from db_engines import get_engines, get_local_engine
 
-DATABASE_URL = os.environ.get("DATABASE_URL") or (
-    "postgresql+psycopg2://ai_admin:ai_admin@postgres:5432/ai_project"
-)
 
 MODEL_PATH = "/opt/airflow/models/modelo_xgboost_sensor_2FF6.joblib"
 
@@ -48,11 +43,19 @@ def load_model():
     return model
 
 
-def load_silver_data(engine):
+def load_silver_data():
+    """
+    Lee siempre del Postgres LOCAL: es la fuente de verdad que el
+    propio pipeline usa para generar sus predicciones. El Postgres
+    de Render (si esta configurado) solo recibe una copia de las
+    escrituras, no se usa como origen de lectura.
+    """
 
     print(
         f"=== LEYENDO SILVER: {SILVER_SCHEMA}.{SILVER_TABLE} ==="
     )
+
+    engine = get_local_engine()
 
     df = pd.read_sql(
         f'''
@@ -179,9 +182,7 @@ def run_prediction_pipeline():
 
     print("=== INICIANDO PREDICCION DE PM2.5 (SENSOR 2FF6) ===")
 
-    engine = create_engine(DATABASE_URL)
-
-    df = load_silver_data(engine)
+    df = load_silver_data()
 
     if len(df) == 0:
 
@@ -208,7 +209,11 @@ def run_prediction_pipeline():
 
     df = predict_pm25(model, df)
 
-    load_to_gold(engine, df)
+    for label, engine in get_engines():
+
+        print(f"--- Guardando en Gold ({label}) ---")
+
+        load_to_gold(engine, df)
 
     print("=== PREDICCION COMPLETADA ===")
     print("=== PROCESO FINALIZADO EXITOSAMENTE ===")

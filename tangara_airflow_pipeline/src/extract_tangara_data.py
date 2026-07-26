@@ -72,7 +72,9 @@ import pandas as pd
 
 from dotenv import load_dotenv
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
+
+from db_engines import get_engines, get_local_engine
 
 
 load_dotenv()
@@ -83,14 +85,6 @@ RAW_FILE = "data/raw/tangara_sensores_api_data.csv"
 # ClickHouse guarda "time" en UTC. Este proyecto guarda y muestra
 # todo en hora de Cali/Colombia.
 CALI_TZ = ZoneInfo("America/Bogota")
-
-# Postgres destino: por defecto el del docker-compose local
-# (servicio "postgres"). Se puede sobreescribir con DATABASE_URL
-# en el .env para apuntar, por ejemplo, a un Postgres administrado
-# en Render.
-DATABASE_URL = os.environ.get("DATABASE_URL") or (
-    "postgresql+psycopg2://ai_admin:ai_admin@postgres:5432/ai_project"
-)
 
 
 def cali_to_utc(cali_naive_datetime):
@@ -112,13 +106,17 @@ def cali_to_utc(cali_naive_datetime):
     return cali_aware.tz_convert("UTC").tz_localize(None)
 
 
-def get_last_extracted_time(engine):
+def get_last_extracted_time():
     """
     Consulta el timestamp mas reciente ya guardado en
-    bronze.tangara_sensores_api_data, para retomar la extraccion
-    justo desde ahi. Si la tabla/schema todavia no existe (primera
+    bronze.tangara_sensores_api_data (siempre en el Postgres
+    LOCAL, que es la fuente de verdad que el propio pipeline usa
+    para saber por donde va), para retomar la extraccion justo
+    desde ahi. Si la tabla/schema todavia no existe (primera
     corrida del pipeline), devuelve None.
     """
+
+    engine = get_local_engine()
 
     try:
 
@@ -160,8 +158,6 @@ def get_clickhouse_client():
 
 def extract_api_data():
 
-    engine = create_engine(DATABASE_URL)
-
     client = get_clickhouse_client()
 
     table = os.getenv("CLICKHOUSE_TABLE", "plata_tangara_sensores")
@@ -195,7 +191,7 @@ def extract_api_data():
     start_date_cali = pd.Timestamp(start_date)
     start_date_utc = cali_to_utc(start_date_cali)
 
-    last_extracted_time = get_last_extracted_time(engine)
+    last_extracted_time = get_last_extracted_time()
 
     if last_extracted_time:
 
@@ -328,30 +324,30 @@ def save_raw_data(df):
 
 def load_to_bronze(df):
 
-    engine = create_engine(DATABASE_URL)
+    for label, engine in get_engines():
 
-    with engine.begin() as conn:
+        with engine.begin() as conn:
 
-        conn.execute(
-            text(
-                """
-                CREATE SCHEMA IF NOT EXISTS bronze
-                """
+            conn.execute(
+                text(
+                    """
+                    CREATE SCHEMA IF NOT EXISTS bronze
+                    """
+                )
             )
+
+        df.to_sql(
+            name="tangara_sensores_api_data",
+            schema="bronze",
+            con=engine,
+            if_exists="append",
+            index=False
         )
 
-    df.to_sql(
-        name="tangara_sensores_api_data",
-        schema="bronze",
-        con=engine,
-        if_exists="append",
-        index=False
-    )
-
-    print("=== CARGA A BRONZE COMPLETADA ===")
-    print("Schema: bronze")
-    print("Tabla: tangara_sensores_api_data")
-    print(f"Registros insertados: {len(df)}")
+        print(f"=== CARGA A BRONZE COMPLETADA ({label}) ===")
+        print("Schema: bronze")
+        print("Tabla: tangara_sensores_api_data")
+        print(f"Registros insertados: {len(df)}")
 
 
 if __name__ == "__main__":

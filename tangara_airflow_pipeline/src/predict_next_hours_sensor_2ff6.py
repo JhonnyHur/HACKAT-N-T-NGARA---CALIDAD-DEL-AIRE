@@ -49,10 +49,11 @@ Ejecucion:
 
 import pandas as pd
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
+
+from db_engines import get_engines
 
 from predict_pm25_sensor_2ff6 import (
-    DATABASE_URL,
     GOLD_COLUMNS,
     GOLD_SCHEMA,
     GOLD_TABLE,
@@ -196,9 +197,7 @@ def run_forecast_pipeline():
         "(PM2.5, SENSOR 2FF6) ==="
     )
 
-    engine = create_engine(DATABASE_URL)
-
-    historial_df = load_silver_data(engine)
+    historial_df = load_silver_data()
 
     if len(historial_df) == 0:
 
@@ -219,7 +218,11 @@ def run_forecast_pipeline():
 
         return
 
-    load_forecast_to_gold(engine, forecast_df)
+    for label, engine in get_engines():
+
+        print(f"--- Guardando pronostico en Gold ({label}) ---")
+
+        load_forecast_to_gold(engine, forecast_df)
 
     print("=== PRONOSTICO COMPLETADO ===")
     print("=== PROCESO FINALIZADO EXITOSAMENTE ===")
