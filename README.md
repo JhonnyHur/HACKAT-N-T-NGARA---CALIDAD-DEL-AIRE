@@ -38,6 +38,7 @@ Todo el proceso es gestionado mediante un pipeline ETL End-to-End, orquestado co
 ### dashboard/
 
 Dashboard interactivo para visualizar variables ambientales, consultar información histórica y monitorear las predicciones de PM2.5.
+https://dashboardtangana.onrender.com
 
 ### tangara_airflow_pipeline/
 
