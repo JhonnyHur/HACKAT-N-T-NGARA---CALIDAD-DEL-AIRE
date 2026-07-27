@@ -14,7 +14,7 @@ Todo el proceso es gestionado mediante un pipeline ETL End-to-End, orquestado co
 
 | Integrante | Universidad | Correo electrónico |
 |------------|-------------|--------------------|
-| Bryan Fernando Burbano Carvajal | Universidad Autónoma de Occidente | bryanburbanocarvajal24@gmail.com |
+| Bryan Fernando Burbano Carvajal | Universidad Autónoma de Occidente | bryan.burbano@uao.edu.co |
 | Jhonny Silvano Hurtado Sinisterra | Universidad Autónoma de Occidente | jhonny.hurtado@uao.edu.co |
 | Germán Andrés Calberto Sánchez | Universidad Autónoma de Occidente | gacalberto@uao.edu.co |
 | Graciela Sánchez Ibarra | Universidad Autónoma de Baja California | sanchez.graciela@uabc.edu.mx |
